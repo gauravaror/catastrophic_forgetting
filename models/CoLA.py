@@ -32,6 +32,6 @@ class CoLADatasetReader(DatasetReader):
     def _read(self, file_path: str) -> Iterator[Instance]:
         with open(file_path, encoding="ISO-8859-1") as f:
             for line in f:
-                tags, sentence = line.strip().split(':', 1)
+                reference, tags,author,sentence = line.strip().split("\t")
                 sentence = sentence.split()
                 yield self.text_to_instance([Token(word) for word in sentence], tags)
