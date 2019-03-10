@@ -28,15 +28,23 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
-parser.add_argument('--task', action='append')
-parser.add_argument('--joint', action='store_true')
-parser.add_argument('--epochs', type=int, default=1000)
+parser.add_argument('--task', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
+parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
+parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
+parser.add_argument('--layers', type=int, default=1, help="Number of layers")
+parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
+parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
+parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
+
 args = parser.parse_args()
 
 print("Training on these tasks", args.task, 
       "\nJoint", args.joint,
-      "\nepochs", args.epochs)
-
+      "\nepochs", args.epochs,
+      "\nlayers", args.layers,
+      "\dropout", args.dropout,
+      "\ne_dim", args.e_dim,
+      "\nh_dim", args.h_dim)
 
 
 reader_senti = StanfordSentimentTreeBankDatasetReader()
@@ -69,16 +77,16 @@ vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
 vocab.print_statistics()
 
-EMBEDDING_DIM = 128
-HIDDEN_DIM = 1150
-
 
 token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
-	  embedding_dim=EMBEDDING_DIM)
+	  embedding_dim=args.e_dim)
 
 word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
 
-lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM, batch_first=True))
+lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
+					   num_layers=args.layers,
+					   dropout=args.dropout,
+					   batch_first=True))
 
 model = MainClassifier(word_embeddings, lstm, vocab)
 
@@ -115,6 +123,7 @@ if args.joint:
 else:
   for i in tasks:
     print("\nTraining task ", i)
+    sys.stdout.flush()
     trainer = Trainer(model=model,
                   optimizer=optimizer,
                   iterator=iterator,
