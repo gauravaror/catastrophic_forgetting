@@ -30,6 +30,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
 parser.add_argument('--task', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
+parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
@@ -44,7 +45,8 @@ print("Training on these tasks", args.task,
       "\nlayers", args.layers,
       "\dropout", args.dropout,
       "\ne_dim", args.e_dim,
-      "\nh_dim", args.h_dim)
+      "\nh_dim", args.h_dim,
+      "\ndiff_class", args.diff_class)
 
 
 reader_senti = StanfordSentimentTreeBankDatasetReader()
@@ -53,6 +55,8 @@ reader_trec = TrecDatasetReader()
 
 train_data = {}
 dev_data = {}
+vocabulary = {}
+
 train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
 dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
 
@@ -73,6 +77,9 @@ joint_dev = []
 for i in tasks:
   joint_train += train_data[i]
   joint_dev += dev_data[i]
+  if args.diff_class:
+    vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
+
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
 vocab.print_statistics()
@@ -90,6 +97,8 @@ lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
 
 model = MainClassifier(word_embeddings, lstm, vocab)
 
+for i in tasks:
+  model.add_task(i, vocabulary[i])
 model.cuda(0)
 
 optimizer = optim.SGD(model.parameters(), lr=0.1)
@@ -101,6 +110,7 @@ iterator = BucketIterator(batch_size=32, sorting_keys=[("tokens", "num_tokens")]
 
 iterator.index_with(vocab)
 
+overall_metrics = {}
 if args.joint:
   print("\nTraining task : Joint ", tasks)
   trainer = Trainer(model=model,
@@ -124,6 +134,9 @@ else:
   for i in tasks:
     print("\nTraining task ", i)
     sys.stdout.flush()
+    if args.diff_class:
+      model.set_task(i)
+      iterator.index_with(vocabulary[i])
     trainer = Trainer(model=model,
                   optimizer=optimizer,
                   iterator=iterator,
@@ -136,16 +149,37 @@ else:
     for j in tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
-      evaluate(model=model,
+      if args.diff_class:
+        model.set_task(j)
+        iterator.index_with(vocabulary[j])
+      metric = evaluate(model=model,
 	 instances=dev_data[j],
 	 data_iterator=iterator,
 	 cuda_device=0,
 	 batch_weight_key=None)
+      overall_metrics["train_"+i+"_evaluate_"+j] = metric
 
-print("\n Joint Evaluating ")
-sys.stdout.flush()
-evaluate(model=model,
+if not args.diff_class:
+  print("\n Joint Evaluating ")
+  sys.stdout.flush()
+  evaluate(model=model,
 	 instances=joint_dev,
 	 data_iterator=iterator,
 	 cuda_device=0,
 	 batch_weight_key=None)
+
+print("Training on these tasks", args.task, 
+      "\nJoint", args.joint,
+      "\nepochs", args.epochs,
+      "\nlayers", args.layers,
+      "\dropout", args.dropout,
+      "\ne_dim", args.e_dim,
+      "\nh_dim", args.h_dim,
+      "\ndiff_class", args.diff_class)
+
+for d in overall_metrics.keys():
+  current_metrics = overall_metrics[d]
+  print("Evaluation for : ", d)
+  for key, metric in current_metrics.items():
+    print(key," : " ,metric)
+

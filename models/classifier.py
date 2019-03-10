@@ -27,14 +27,25 @@ class MainClassifier(Model):
     self.word_embeddings = word_embeddings
     self.encoder = encoder
     self.vocab = vocab
+    self.tasks_vocabulary = {"default": vocab}
+    self.current_task = "default"
     self.num_task = 0
-    self.classification_layers = { "default": torch.nn.Linear(in_features=encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))}
-    self.hidden2tag = self.classification_layers["default"]
+    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))])
+    self.task2id = { "default": 0 }
+    self.hidden2tag = self.classification_layers[self.task2id["default"]]
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
 
-#  def add_task(self, task_tag: str)
-#    self.classification_layers[task_tag] = 
+  def add_task(self, task_tag: str, vocab: Vocabulary):
+    self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
+    self.num_task = self.num_task + 1
+    self.task2id[task_tag] = self.num_task
+    self.tasks_vocabulary[task_tag] = vocab
+
+  def set_task(self, task_tag: str):
+    self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
+    self.current_task = task_tag
+    self.vocab = self.tasks_vocabulary[task_tag]
 
   def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
 
