@@ -27,12 +27,16 @@ class MainClassifier(Model):
     self.word_embeddings = word_embeddings
     self.encoder = encoder
     self.vocab = vocab
-    self.hidden2tag = torch.nn.Linear(in_features=encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))
+    self.num_task = 0
+    self.classification_layers = { "default": torch.nn.Linear(in_features=encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))}
+    self.hidden2tag = self.classification_layers["default"]
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
 
-  def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+#  def add_task(self, task_tag: str)
+#    self.classification_layers[task_tag] = 
 
+  def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
 
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
