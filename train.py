@@ -101,7 +101,7 @@ for i in tasks:
   model.add_task(i, vocabulary[i])
 model.cuda(0)
 
-optimizer = optim.SGD(model.parameters(), lr=0.1)
+optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08)
 
 move_optimizer_to_cuda(optimizer)
 
