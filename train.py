@@ -157,7 +157,11 @@ else:
 	 data_iterator=iterator,
 	 cuda_device=0,
 	 batch_weight_key=None)
-      overall_metrics["train_"+i+"_evaluate_"+j] = metric
+      if i not in overall_metrics:
+        overall_metrics[i] = {}
+        overall_metrics[i][j] = metric
+      else:
+        overall_metrics[i][j] = metric
 
 if not args.diff_class:
   print("\n Joint Evaluating ")
@@ -177,9 +181,26 @@ print("Training on these tasks", args.task,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
 
-for d in overall_metrics.keys():
+print("Accuracy and Loss")
+header="Accuracy"
+for i in tasks:
+  header = header + "\t" + i
+print(header)
+for d in tasks:
   current_metrics = overall_metrics[d]
-  print("Evaluation for : ", d)
-  for key, metric in current_metrics.items():
-    print(key," : " ,metric)
+  print_data=d
+  for k in tasks:
+    print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
+  print(print_data)
 
+print("\n\n")
+header="Loss"
+for i in tasks:
+  header = header + "\t" + i
+print(header)
+for d in tasks:
+  current_metrics = overall_metrics[d]
+  print_data=d
+  for k in tasks:
+    print_data = print_data + "\t" + str(overall_metrics[k][d]["loss"])
+  print(print_data)
