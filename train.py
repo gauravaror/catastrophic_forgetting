@@ -162,11 +162,20 @@ else:
         overall_metrics[i][j] = metric
       else:
         overall_metrics[i][j] = metric
+    print("\n Joint Evaluating ")
+    sys.stdout.flush()
+    model.set_task("default")
+    overall_metric = evaluate(model=model,
+         instances=joint_dev,
+         data_iterator=iterator,
+         cuda_device=0,
+         batch_weight_key=None)
+    overall_metrics[i]["Joint"] = overall_metric
 
 if not args.diff_class:
   print("\n Joint Evaluating ")
   sys.stdout.flush()
-  evaluate(model=model,
+  overall_metric = evaluate(model=model,
 	 instances=joint_dev,
 	 data_iterator=iterator,
 	 cuda_device=0,
@@ -176,7 +185,7 @@ print("Training on these tasks", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
-      "\dropout", args.dropout,
+      "\ndropout", args.dropout,
       "\ne_dim", args.e_dim,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
@@ -192,8 +201,12 @@ for d in tasks:
   for k in tasks:
     print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
   print(print_data)
-
+joint_print_data = "Joint\t"
+for o in tasks:
+  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
+print(joint_print_data)
 print("\n\n")
+
 header="Loss"
 for i in tasks:
   header = header + "\t" + i
@@ -204,3 +217,7 @@ for d in tasks:
   for k in tasks:
     print_data = print_data + "\t" + str(overall_metrics[k][d]["loss"])
   print(print_data)
+joint_print_data = "Joint\t"
+for o in tasks:
+  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
+print(joint_print_data)
