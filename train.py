@@ -3,9 +3,11 @@ import torch
 import torch.optim as optim
 import numpy as np
 import sys
+import pandas as pd
+import random
 
 from allennlp.data.dataset_readers import DatasetReader
-from allennlp.data.dataset_readers.stanford_sentiment_tree_bank import StanfordSentimentTreeBankDatasetReader
+from models.sst import StanfordSentimentTreeBankDatasetReader1
 from allennlp.data.vocabulary import Vocabulary
 
 from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
@@ -14,14 +16,16 @@ from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder, PytorchSeq2SeqWrap
 from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrapper
 from allennlp.models import Model
 
+from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
+from allennlp.modules.seq2vec_encoders import CnnEncoder
 from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
-
+from allennlp.modules.seq2seq_encoders.multi_head_self_attention import MultiHeadSelfAttention
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
-from models.classifier import MainClassifier
+from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
 from models.trec import TrecDatasetReader
 from models.CoLA import CoLADatasetReader
 import argparse
@@ -31,11 +35,17 @@ parser = argparse.ArgumentParser(description='Argument for catastrophic training
 parser.add_argument('--task', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
+parser.add_argument('--cnn', action='store_true', help="Use CNN")
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
 parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
+parser.add_argument('--s_dir', help="Serialization directory")
+parser.add_argument('--seq2vec', help="Use Sequence to sequence",action='store_true')
+parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
+parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
+parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 
 args = parser.parse_args()
 
@@ -49,7 +59,7 @@ print("Training on these tasks", args.task,
       "\ndiff_class", args.diff_class)
 
 
-reader_senti = StanfordSentimentTreeBankDatasetReader()
+reader_senti = StanfordSentimentTreeBankDatasetReader1()
 reader_cola = CoLADatasetReader()
 reader_trec = TrecDatasetReader()
 
@@ -74,7 +84,9 @@ tasks = args.task
 print(type(train_data[tasks[0]]))
 joint_train = []
 joint_dev = []
+task_code=""
 for i in tasks:
+  task_code+=str("_"+str(i))
   joint_train += train_data[i]
   joint_dev += dev_data[i]
   if args.diff_class:
@@ -90,12 +102,48 @@ token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
 
 word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
 
-lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
+experiment="lstm"
+print("CNN",args.cnn)
+if args.cnn:
+  experiment="cnn"
+  print(" Going CNN",args.cnn)
+  ngrams_f=(2,3,4,5,2,3,4,5,2,3,4,5)
+  cnn = CnnEncoder(embedding_dim=args.e_dim,
+		   ngram_filter_sizes=ngrams_f[:args.layers],
+		   num_filters=args.h_dim)
+  model = MainClassifier(word_embeddings, cnn, vocab)
+elif args.seq2vec or args.majority:
+  experiment="lstm"
+  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   batch_first=True))
-
-model = MainClassifier(word_embeddings, lstm, vocab)
+  print(" Going LSTM",args.cnn)
+  lstmseq = PytorchSeq2SeqWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
+					   num_layers=args.layers,
+					   dropout=args.dropout,
+					   batch_first=True))
+  if args.gru:
+    experiment="gru"
+    lstm = PytorchSeq2VecWrapper(torch.nn.GRU(args.e_dim, args.h_dim,
+					   num_layers=args.layers,
+					   dropout=args.dropout,
+					   batch_first=True))
+  model = MainClassifier(word_embeddings, lstm, vocab)
+  if args.majority:
+    model = MajorityClassifier(vocab)
+else:
+  experiment="selfattention"
+  print(" Going Attention",args.cnn)
+  attentionseq = StackedSelfAttentionEncoder(
+					   input_dim=args.e_dim,
+					   hidden_dim=args.h_dim,
+					   projection_dim=128,
+					   feedforward_hidden_dim=128,
+					   num_layers=args.layers,
+					   num_attention_heads=8,
+					   attention_dropout_prob=args.dropout)
+  model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -145,7 +193,8 @@ else:
                   patience=10,
                   num_epochs=args.epochs,
 		  cuda_device=0)
-    trainer.train()
+    if not args.majority:
+      trainer.train()
     for j in tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
@@ -162,15 +211,16 @@ else:
         overall_metrics[i][j] = metric
       else:
         overall_metrics[i][j] = metric
-    print("\n Joint Evaluating ")
-    sys.stdout.flush()
-    model.set_task("default")
-    overall_metric = evaluate(model=model,
+    if not args.majority:
+      print("\n Joint Evaluating ")
+      sys.stdout.flush()
+      model.set_task("default")
+      overall_metric = evaluate(model=model,
          instances=joint_dev,
          data_iterator=iterator,
          cuda_device=0,
          batch_weight_key=None)
-    overall_metrics[i]["Joint"] = overall_metric
+      overall_metrics[i]["Joint"] = overall_metric
 
 if not args.diff_class:
   print("\n Joint Evaluating ")
@@ -194,18 +244,30 @@ print("Accuracy and Loss")
 header="Accuracy"
 for i in tasks:
   header = header + "\t" + i
+insert_in_pandas_list=[]
 print(header)
 for d in tasks:
   current_metrics = overall_metrics[d]
   print_data=d
+  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
+  i=0
   for k in tasks:
     print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
+    insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
+  insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
 joint_print_data = "Joint\t"
-for o in tasks:
-  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
+#for o in tasks:
+#  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
 print(joint_print_data)
 print("\n\n")
+initial_path="dfs/Results"
+if not args.seq2vec:
+  intial_path="dfs_att/Results_selfattention"
+if args.cnn:
+  initial_path="dfs/Results_CNN_"
+if args.gru:
+  initial_path="dfs/Results_GRU_"
 
 header="Loss"
 for i in tasks:
@@ -213,11 +275,16 @@ for i in tasks:
 print(header)
 for d in tasks:
   current_metrics = overall_metrics[d]
+  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'average'}
   print_data=d
   for k in tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["loss"])
+    print_data = print_data + "\t" + str(overall_metrics[k][d]["average"])
+    insert_pandas_dict[k] = overall_metrics[k][d]["average"]
+  insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
 joint_print_data = "Joint\t"
 for o in tasks:
   joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
+df=pd.DataFrame(insert_in_pandas_list)
+df.to_pickle(path=str(initial_path+task_code+"_"+str(args.layers)+"_"+str(args.h_dim)+"_"+str(args.tryno)+".df"))
 print(joint_print_data)
