@@ -9,6 +9,7 @@ import random
 from allennlp.data.dataset_readers import DatasetReader
 from models.sst import StanfordSentimentTreeBankDatasetReader1
 from allennlp.data.vocabulary import Vocabulary
+from models.save_weights import SaveWeights
 
 from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
@@ -17,7 +18,7 @@ from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrap
 from allennlp.models import Model
 
 from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
-from allennlp.modules.seq2vec_encoders import CnnEncoder
+from models.cnn_encoder import CnnEncoder
 from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
@@ -102,14 +103,17 @@ token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
 
 word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
 
+save_weight = SaveWeights("cnn")
+
 experiment="lstm"
 print("CNN",args.cnn)
 if args.cnn:
-  experiment="cnn"
+  experiment="cnn_stacked"
   print(" Going CNN",args.cnn)
-  ngrams_f=(2,3,4,5,2,3,4,5,2,3,4,5)
+  ngrams_f=(2,3,3)
   cnn = CnnEncoder(embedding_dim=args.e_dim,
-		   ngram_filter_sizes=ngrams_f[:args.layers],
+                   num_layers=args.layers,
+		   ngram_filter_sizes=ngrams_f,
 		   num_filters=args.h_dim)
   model = MainClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
@@ -153,7 +157,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-
 
 move_optimizer_to_cuda(optimizer)
 
-torch.set_num_threads(8)
+torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=32, sorting_keys=[("tokens", "num_tokens")])
 
 iterator.index_with(vocab)
@@ -195,6 +199,7 @@ else:
 		  cuda_device=0)
     if not args.majority:
       trainer.train()
+    save_weight.write_weights(model, args.layers, args.h_dim, task_code, i, args.tryno)
     for j in tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
