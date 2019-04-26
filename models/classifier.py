@@ -89,6 +89,7 @@ class MainClassifier(Model):
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
     self.average  = Average()
+    self.activations = []
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
     self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
@@ -105,7 +106,8 @@ class MainClassifier(Model):
 
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
-    encoder_out = self.encoder(embeddings, mask)
+    encoder_out, activations = self.encoder(embeddings, mask)
+    self.activations = activations
     tag_logits = self.hidden2tag(encoder_out)
     output = {'logits': tag_logits }
     if label is not None:
@@ -118,6 +120,9 @@ class MainClassifier(Model):
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
     return {"accuracy": self.accuracy.get_metric(reset), "average": self.average.get_metric(reset)}
+
+  def get_activations(self) -> []:
+    return self.activations
 
 
 @Model.register("seq2seq_classifier")
