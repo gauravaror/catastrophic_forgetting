@@ -5,6 +5,7 @@ import pandas as pd
 import sys
 sys.path.append("..")
 from svcca import cca_core as svc
+import numpy as np
 
 class SaveWeights:
 
@@ -22,6 +23,20 @@ class SaveWeights:
       #self.activations[train]["trained_task"] = train
     self.activations[train][evaluated] = model.get_activations()
 
+  def get_zero_weights(self, activations):
+
+    # Activations are samplesXneuron activation. Count activation
+    # Which are non-zero at axis one. one with zero nonzero are dead
+    # Neurons.
+    axisz_non=np.count_nonzero(activations, axis=0)
+    axiso_non=np.count_nonzero(activations, axis=1)
+    average_zero_neurons=sum(axiso_non)/len(axiso_non)
+    second_size=activations.shape[1]
+    dead_neurons=np.count_nonzero(axisz_non)
+    return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
+      
+    
+
   def write_activations(self):
     lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527}
     final_val=[]
@@ -33,9 +48,14 @@ class SaveWeights:
             try:
               #print(self.activations[task][task][lay][gram], len(self.activations[task][task][lay][gram]))
               print(self.activations[first_task][evalua][lay][gram].shape, self.activations[task][evalua][lay][gram].shape)
-              cor1=svc.get_cca_similarity(self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy(),
-                 self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy())
+              first_activation=self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
+              current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
+              cor1=svc.get_cca_similarity(first_activation,current_activation)
               val={}
+              dead,average_z,tot=self.get_zero_weights(current_activation)
+              val['avg_zeros'] = average_z
+              val['dead'] = dead
+              val['total'] = tot
               val['evaluate']=str(evalua)
               val['gram']=str(gram)
               val['lay']=str(lay)
@@ -44,11 +64,16 @@ class SaveWeights:
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),str(cor1['mean'])))
             except Exception as e:
               val={}
+              current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               val['evaluate']=str(evalua)
               val['gram']=str(gram)
               val['lay']=str(lay)
               val['task']=str(task)
               val['corr']="FailedSVC"
+              dead,average_z,tot=self.get_zero_weights(current_activation)
+              val['avg_zeros'] = average_z
+              val['dead'] = dead
+              val['total'] = tot
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),"Failed SVC"))
               print(e)
             final_val.append(val)
