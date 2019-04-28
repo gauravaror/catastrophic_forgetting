@@ -16,7 +16,6 @@ parser.add_argument('--show_hd',action="store_true", help='Show the h_dimension 
 parser.add_argument('--h_dim', action='append')
 
 parser.add_argument('--data', action='append',
-                              default=['dead_per','avg_zeros_per','weight_corr','corr'],
                               help="dead_per, accuracy, avg_zeros_per, weight_corr, corr")
 
 parser.add_argument('--inte_lay', action='append',
@@ -34,8 +33,7 @@ args = parser.parse_args()
 
 if not args.data:
   print("Not asked to plot anything: ploting weight_corr")
-  args.data = []
-  args.data.append('weight_corr')
+  args.data = ['dead_per','avg_zeros_per','weight_corr','corr']
 
 
 if not args.inte_lay:
