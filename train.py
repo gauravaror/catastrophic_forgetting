@@ -103,7 +103,7 @@ token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
 
 word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
 
-save_weight = SaveWeights("cnn")
+save_weight = SaveWeights("cnn", args.layers, args.h_dim, task_code)
 
 experiment="lstm"
 print("CNN",args.cnn)
@@ -194,23 +194,25 @@ else:
                   iterator=iterator,
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
-                  patience=10,
+                  patience=1,
                   num_epochs=args.epochs,
 		  cuda_device=0)
     if not args.majority:
       trainer.train()
-    save_weight.write_weights(model, args.layers, args.h_dim, task_code, i, args.tryno)
+    save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
     for j in tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
       if args.diff_class:
         model.set_task(j)
-        iterator.index_with(vocabulary[j])
+        iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
+        iterator1.index_with(vocabulary[j])
       metric = evaluate(model=model,
 	 instances=dev_data[j],
-	 data_iterator=iterator,
+	 data_iterator=iterator1,
 	 cuda_device=0,
 	 batch_weight_key=None)
+      save_weight.add_activations(model,i,j)
       if i not in overall_metrics:
         overall_metrics[i] = {}
         overall_metrics[i][j] = metric
@@ -236,6 +238,7 @@ if not args.diff_class:
 	 cuda_device=0,
 	 batch_weight_key=None)
 
+save_weight.write_activations()
 print("Training on these tasks", args.task, 
       "\nJoint", args.joint,
       "\nepochs", args.epochs,

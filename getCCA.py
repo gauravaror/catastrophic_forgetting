@@ -1,6 +1,7 @@
 # This file calculates the CCA between the layers
 import pickle
 
+import sys
 import argparse
 import scipy
 from scipy import linalg
@@ -8,6 +9,9 @@ from scipy.linalg import decomp_qr
 from sklearn import preprocessing
 import numpy as np
 import pandas as pd
+
+sys.path.append("..")
+from svcca import cca_core as svc
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('firstfile', type=str,
@@ -64,6 +68,8 @@ def get_correlation_for_two(cca_first, cca_second):
         data_dict={}
         for filt in range(len(first[layer][gram])):
           vect.append(ComputeCCA(cca_first[layer][gram][filt], cca_second[layer][gram][filt]))
+          print(cca_second[layer][gram][filt].shape)
+          #print("Layer",layer,"gram",gram,"Filt", filt,svc.get_cca_similarity(cca_first[layer][gram][filt], cca_second[layer][gram][filt]))
         #print("Layer %s gram %s : %s"% (str(layer), str(gram), str(sum(vect)/len(vect))))
         data_dict['layer'] = layer
         data_dict['gram'] = gram
@@ -89,5 +95,5 @@ for i in range(len(data1)):
   'z_third': data3[i]['correlation']})
 
 df=pd.DataFrame(final_data)
-print(df)
+print(df.to_string())
 
