@@ -110,7 +110,7 @@ print("CNN",args.cnn)
 if args.cnn:
   experiment="cnn_stacked"
   print(" Going CNN",args.cnn)
-  ngrams_f=(2,3,3)
+  ngrams_f=(4,)
   cnn = CnnEncoder(embedding_dim=args.e_dim,
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
@@ -238,7 +238,7 @@ if not args.diff_class:
 	 cuda_device=0,
 	 batch_weight_key=None)
 
-save_weight.write_activations()
+save_weight.write_activations(overall_metrics)
 print("Training on these tasks", args.task, 
       "\nJoint", args.joint,
       "\nepochs", args.epochs,

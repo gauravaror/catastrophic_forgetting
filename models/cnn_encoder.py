@@ -117,9 +117,7 @@ class CnnEncoder(Seq2VecEncoder):
             x=self._activation(x)
             gram_acti.append(x.data.clone().cpu())
             #print("Size After Activation", x.size())
-            filter_outputs.append(
-                    self._pooling(x)
-            )
+            filter_outputs.append(x)
         activations.append(gram_acti)
         #for f in filter_outputs:
         #  print(f.size())
@@ -136,8 +134,7 @@ class CnnEncoder(Seq2VecEncoder):
                 convolution_layer = getattr(self, 'conv_layer{}_{}'.format(a,i))
                 input_new=self._activation(convolution_layer(maxpool_output))
                 gram_acti.append(input_new.data.clone().cpu())
-                filter_outputs.append(
-                         self._pooling(input_new))
+                filter_outputs.append(input_new)
             maxpool_output = torch.cat(filter_outputs, dim=2) if len(filter_outputs) > 1 else filter_outputs[0]
             activations.append(gram_acti)
             #print("Layer", a ,maxpool_output.size())

@@ -3,9 +3,12 @@ from models.cnn_encoder import CnnEncoder
 import pickle
 import pandas as pd
 import sys
+from models import get_cca as wcca
+
 sys.path.append("..")
 from svcca import cca_core as svc
 import numpy as np
+
 
 class SaveWeights:
 
@@ -13,6 +16,7 @@ class SaveWeights:
     self.encoder_type = encoder_
     self.tryno=1
     self.activations={}
+    self.weights={}
     self.layer=layer
     self.hdim=hdim
     self.code=code
@@ -20,6 +24,7 @@ class SaveWeights:
   def add_activations(self, model, train, evaluated):
     if not train in self.activations:
       self.activations[train] = {}
+      self.weights[train] = self.get_cnn_weights(model)
       #self.activations[train]["trained_task"] = train
     self.activations[train][evaluated] = model.get_activations()
 
@@ -36,8 +41,7 @@ class SaveWeights:
     return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
       
     
-
-  def write_activations(self):
+  def write_activations(self, overall_metrics):
     lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527}
     final_val=[]
     first_task=list(self.activations.keys())[0]
@@ -46,40 +50,66 @@ class SaveWeights:
         for lay in range(len(self.activations[task][evalua])):
           for gram in range(len(self.activations[task][evalua][lay])):
             try:
-              #print(self.activations[task][task][lay][gram], len(self.activations[task][task][lay][gram]))
-              print(self.activations[first_task][evalua][lay][gram].shape, self.activations[task][evalua][lay][gram].shape)
+              # Extract Activations
               first_activation=self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               cor1=svc.get_cca_similarity(first_activation,current_activation)
+
+              # Extract Weights
+              first_weight=self.weights[first_task][lay][gram]
+              current_weight=self.weights[task][lay][gram]
+
+              weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
+
               val={}
               dead,average_z,tot=self.get_zero_weights(current_activation)
               val['avg_zeros'] = average_z
               val['dead'] = dead
+              val['avg_zeros_per'] = average_z/tot
+              val['dead_per'] = dead/tot
               val['total'] = tot
               val['evaluate']=str(evalua)
-              val['gram']=str(gram)
-              val['lay']=str(lay)
+              val['gram']=int(gram)
+              val['lay']=int(lay)
               val['task']=str(task)
-              val['corr']=str(cor1['mean'])
+              val['corr']=float(cor1['mean'][0])
+              val['weight_corr']=float(weight_corr)
+              val['layer'] = self.layer
+              val['h_dim'] = self.hdim
+              val['code'] = self.code
+              val['accuracy'] = overall_metrics[task][evalua]['accuracy']
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),str(cor1['mean'])))
             except Exception as e:
               val={}
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
+              # Extract Weights
+              first_weight=self.weights[first_task][lay][gram]
+              current_weight=self.weights[task][lay][gram]
+
+              weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
               val['evaluate']=str(evalua)
-              val['gram']=str(gram)
-              val['lay']=str(lay)
+              val['gram']=int(gram)
+              val['layer'] = self.layer
+              val['h_dim'] = self.hdim
+              val['code'] = self.code
+              val['lay']=int(lay)
               val['task']=str(task)
-              val['corr']="FailedSVC"
+              val['corr']=None
+              val['weight_corr']=float(weight_corr)
               dead,average_z,tot=self.get_zero_weights(current_activation)
               val['avg_zeros'] = average_z
               val['dead'] = dead
               val['total'] = tot
+              val['avg_zeros_per'] = average_z/tot
+              val['dead_per'] = dead/tot
+              val['accuracy'] = overall_metrics[task][evalua]['accuracy']
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),"Failed SVC"))
               print(e)
             final_val.append(val)
     mydf=pd.DataFrame(final_val)
     filename="final_corr/%s_layer_%s_hdim_%s_code_%s.df"%(str(self.encoder_type),str(self.layer),str(self.hdim), str(self.code))
     mydf.to_pickle(filename)
+
     
   def write_weights_new(self, model, layer, h_dim, code, after_task,tryno):
     self.tryno=tryno
@@ -99,12 +129,12 @@ class SaveWeights:
   def get_cnn_weights(self, model):
     cnn_encoder_layer1 = model.encoder._convolution_layers
     cnn_encoder_layer2 = model.encoder._convolution_layers2
-    cnn_array={ 1: []}
+    cnn_array={ 0: []}
     for layer in cnn_encoder_layer1:
       this_wei = layer.weight
       this_wei=this_wei.to('cpu')
       curr_array=this_wei.detach().data.numpy()
-      cnn_array[1].append(curr_array)
+      cnn_array[0].append(curr_array)
       print(curr_array.shape)
       this_wei=this_wei.to('cuda')
     for i,layer in enumerate(cnn_encoder_layer2):
@@ -112,9 +142,9 @@ class SaveWeights:
         this_wei = gram.weight
         this_wei=this_wei.to('cpu')
         curr_array=this_wei.detach().data.numpy()
-        if not ((i+2) in cnn_array):
-          cnn_array[(i+2)] = []
-        cnn_array[i+2].append(curr_array)
+        if not ((i+1) in cnn_array):
+          cnn_array[(i+1)] = []
+        cnn_array[i+1].append(curr_array)
         print(curr_array.shape)
         this_wei=this_wei.to('cuda')
     return cnn_array
