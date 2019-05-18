@@ -24,7 +24,8 @@ class SaveWeights:
   def add_activations(self, model, train, evaluated):
     if not train in self.activations:
       self.activations[train] = {}
-      self.weights[train] = self.get_cnn_weights(model)
+      if self.encoder_type == "cnn":
+          self.weights[train] = self.get_cnn_weights(model)
       #self.activations[train]["trained_task"] = train
     self.activations[train][evaluated] = model.get_activations()
 
@@ -56,10 +57,13 @@ class SaveWeights:
               cor1=svc.get_cca_similarity(first_activation,current_activation)
 
               # Extract Weights
-              first_weight=self.weights[first_task][lay][gram]
-              current_weight=self.weights[task][lay][gram]
+              if len(self.weights) > 0:
+                first_weight=self.weights[first_task][lay][gram]
+                current_weight=self.weights[task][lay][gram]
 
-              weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
+                weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
+              else:
+                weight_corr='nan'
 
               val={}
               dead,average_z,tot=self.get_zero_weights(current_activation)
@@ -83,10 +87,13 @@ class SaveWeights:
               val={}
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               # Extract Weights
-              first_weight=self.weights[first_task][lay][gram]
-              current_weight=self.weights[task][lay][gram]
+              if len(self.weights) > 0:
+                first_weight=self.weights[first_task][lay][gram]
+                current_weight=self.weights[task][lay][gram]
 
-              weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
+                weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
+              else:
+                weight_corr='nan'
               val['evaluate']=str(evalua)
               val['gram']=int(gram)
               val['layer'] = self.layer

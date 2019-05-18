@@ -54,12 +54,12 @@ class DeepPyramidCNN(Seq2VecEncoder):
 
         x = self.padding_conv(x)                      # pad保证等长卷积，先通过激活函数再卷积
         x = self.act_fun(x)
-        x = self.conv3(x)
         self.activations.append([x.data.clone().cpu()])
+        x = self.conv3(x)
         x = self.padding_conv(x)
         x = self.act_fun(x)
-        x = self.conv3(x)
         self.activations.append([x.data.clone().cpu()])
+        x = self.conv3(x)
 
         while x.size()[-2] >= 2:
             x = self._block(x)
@@ -75,13 +75,13 @@ class DeepPyramidCNN(Seq2VecEncoder):
         # Convolution
         x = self.padding_conv(px)
         x = F.relu(x)
-        x = self.conv3(x)
         self.activations.append([x.data.clone().cpu()])
+        x = self.conv3(x)
 
         x = self.padding_conv(x)
         x = F.relu(x)
-        x = self.conv3(x)
         self.activations.append([x.data.clone().cpu()])
+        x = self.conv3(x)
 
         # Short Cut
         #x = x + px

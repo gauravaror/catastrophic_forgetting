@@ -19,6 +19,8 @@ from allennlp.models import Model
 
 from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
 from models.cnn_encoder import CnnEncoder
+
+from models.deep_pyramid_cnn import DeepPyramidCNN
 from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
@@ -30,6 +32,7 @@ from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassif
 from models.trec import TrecDatasetReader
 from models.CoLA import CoLADatasetReader
 import argparse
+#from torch.utils.tensorboard import SummaryWriter
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
@@ -37,6 +40,7 @@ parser.add_argument('--task', action='append', help="Task to train on, put each 
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
+parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
@@ -47,8 +51,14 @@ parser.add_argument('--seq2vec', help="Use Sequence to sequence",action='store_t
 parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
+parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
 
 args = parser.parse_args()
+
+
+#writer=SummaryWriter(run_name)
+#writer.add_text("args", str(args))
+
 
 print("Training on these tasks", args.task, 
       "\nJoint", args.joint,
@@ -92,6 +102,8 @@ for i in tasks:
   joint_dev += dev_data[i]
   if args.diff_class:
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
+## Define Run Name and args to tensorboard for tracking.
+run_name="runs/"+args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
@@ -103,18 +115,23 @@ token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
 
 word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
 
-save_weight = SaveWeights("cnn", args.layers, args.h_dim, task_code)
 
 experiment="lstm"
 print("CNN",args.cnn)
 if args.cnn:
-  experiment="cnn_stacked"
+  experiment="cnn"
   print(" Going CNN",args.cnn)
-  ngrams_f=(4,)
+  ngrams_f=(2,)
   cnn = CnnEncoder(embedding_dim=args.e_dim,
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
 		   num_filters=args.h_dim)
+  if args.pyramid:
+      experiment="dpcnn"
+      cnn = DeepPyramidCNN(embedding_dim=args.e_dim,
+                       num_layers=args.layers,
+		       ngram_filter_sizes=ngrams_f,
+		       num_filters=args.h_dim)
   model = MainClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
@@ -148,6 +165,8 @@ else:
 					   num_attention_heads=8,
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
+
+save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -194,12 +213,15 @@ else:
                   iterator=iterator,
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
+		  num_serialized_models_to_keep=0,
+		  serialization_dir=run_name+'/'+str(i),
+		  histogram_interval=2,
                   patience=1,
                   num_epochs=args.epochs,
 		  cuda_device=0)
     if not args.majority:
       trainer.train()
-    save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
+    #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
     for j in tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
