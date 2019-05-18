@@ -39,6 +39,7 @@ parser.add_argument('--diff_class', action='store_true', help="Do training with 
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
+parser.add_argument('--patience', type=int, default=10, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
 parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
@@ -170,7 +171,7 @@ if args.joint:
                   iterator=iterator,
                   train_dataset=joint_train,
                   validation_dataset=joint_dev,
-                  patience=10,
+                  patience=args.patience,
                   num_epochs=args.epochs,
 		  cuda_device=0)
   trainer.train()
