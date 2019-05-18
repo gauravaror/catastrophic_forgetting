@@ -18,6 +18,7 @@ from allennlp.models import Model
 from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
+import bad_graph_viz as bad
 
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda
@@ -106,7 +107,12 @@ class MainClassifier(Model):
 
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
-    encoder_out, activations = self.encoder(embeddings, mask)
+    output = self.encoder(embeddings, mask)
+    if type(output) == tuple:
+        encoder_out, activations = output
+    else:
+        encoder_out = output
+        activations = []
     self.activations = activations
     tag_logits = self.hidden2tag(encoder_out)
     output = {'logits': tag_logits }
@@ -115,7 +121,7 @@ class MainClassifier(Model):
       self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
-
+      #bad.register_hooks(tag_logits)
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:

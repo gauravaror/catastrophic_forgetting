@@ -4,6 +4,7 @@ import matplotlib.text as txt
 from matplotlib.lines import Line2D
 import numpy as np
 import scipy.stats
+import sys
 
 import argparse
 
@@ -11,11 +12,35 @@ parser = argparse.ArgumentParser(description='Plots the graphs using current_dat
 parser.add_argument('--show_config', default=1, type=int, help='Default task to show results for : 1: _sst_cola_subjectivity_trec 2: _cola_trec_sst_subjectivity  3: _trec_sst_subjectivity_cola')
 parser.add_argument('--show_exper', default=1, type=int, help='Default experiment to show results for : 1: lstm 2: cnn')
 parser.add_argument('--show_hd',action="store_true", help='Show the h_dimension as lines')
+
 parser.add_argument('--h_dim', action='append')
-parser.add_argument('--layer', action='append')
+
+parser.add_argument('--data', action='append',
+                              help="dead_per, accuracy, avg_zeros_per, weight_corr, corr")
+
+parser.add_argument('--inte_lay', action='append',
+                                  type=int,
+                                  help="Internal layers to show 0,1,2")
+parser.add_argument('--gram', 
+                     action='append',
+                     default=[0],
+                     help="Which gram to show 0,1,2 values depends on if data has it")
+
+parser.add_argument('--layer', action='append', type=int)
 parser.add_argument('--task', action='append')
 args = parser.parse_args()
 
+
+if not args.data:
+  print("Not asked to plot anything: ploting weight_corr")
+  args.data = ['dead_per','avg_zeros_per','weight_corr','corr']
+
+
+if not args.inte_lay:
+  args.inte_lay = []
+  max_=max(args.layer)
+  for i in range(max_):
+    args.inte_lay.append(i)
 
 def mean_confidence_interval(data, confidence=0.95):
     a = 1.0 * np.array(data)
@@ -77,7 +102,7 @@ else:
 if args.h_dim:
   show_dim=args.h_dim
 else:
-  show_dim=[100,400,900,1400,1900,2400]
+  show_dim=[100,400,900,1400,1900]
 
 if args.layer:
   show_layer=args.layer
@@ -112,41 +137,65 @@ else:
   print("Wrong Experiment selected, selecting lstm")
   show_experiment="lstm"
 
-fig, plt = plta.subplots()
+if len(show_layer) == 1 and len(args.inte_lay)>1:
+  print("Showing inte layer")
+  diff_inte_lay=True
+else: 
+  diff_inte_lay=False
+
 task_order=show_config.split("_")[1:]
-df=pd.read_pickle('13thAprilcurrent_dataset.df')
-for l_id,layer_ in enumerate(show_layer):
-  for h_did,h_d_ in enumerate(show_dim):
-    for task in show_tasks:
-      layer=int(layer_)
-      h_d=int(h_d_)
-      plot_list=[]
-      ord=0
-      for t in task_order:
-        sent_data=df[df.experiment==show_experiment][df.code==show_config][df.layer==layer][df.h_dim==h_d][df.task==task][df.metric=="accuracy"][[t]]
-        print("Trained Tasks ", task, "show tasks ", t,sent_data, "SOTA ", sota[task], "PLOTTED VALUE", mean_confidence_interval(sent_data)[0]/sota[task], "Layer", layer, "dimension", h_d)
-        ci_data=mean_confidence_interval(sent_data)
-        print(ci_data)
-        # Normalize values for the plot
-        plot_value=(ci_data[0] - majority[task])/(sota[task]- majority[task])
-        ci_errors=[ci_data[0]-ci_data[1],ci_data[2]-ci_data[0]]
-        plt.errorbar(x=ord,y=plot_value,yerr=ci_errors,markerfacecolor=h_dim_fco[h_d], marker=h_dim_marker[h_d], color=tasks[task], linestyle=num_layers[layer])
-        ord += 1
-        plot_list.append(plot_value)
-      if args.show_hd:
-        plt.plot(plot_list, markerfacecolor=h_dim_fco[h_d], marker=h_dim_marker[h_d], color=tasks[task], linestyle=num_layers[layer])
-      else:
-        plt.plot(plot_list, code, markerfacecolor='b')
-#for i in majority:
-#  plt.hlines(y=majority[i]/sota[i],xmin=0,xmax=3,colors=tasks[i],linestyles='dashdot', label="majority")
-#  print("majority", majority[i]/sota[i])
-my_xticks = task_order
-my_xticks_color = [ tasks[t] for t in task_order]
-plt.legend(custom_lines,legend_labels)
 
-plta.xticks(range(4), my_xticks)
-[t.set_color(i) for (i,t) in
- zip( my_xticks_color, plt.xaxis.get_ticklabels())]
 
-plta.title(show_experiment.upper())
+def configure_subplot(df,plt,d):
+  for l_id,layer_ in enumerate(show_layer):
+    for h_did,h_d_ in enumerate(show_dim):
+      for task in show_tasks:
+        for g in args.gram:
+          for la in args.inte_lay:
+            layer=int(layer_)
+            h_d=int(h_d_)
+            plot_list=[]
+            ord=0
+            for t in task_order:
+              sent_data=df[df.layer==layer][df.h_dim==h_d][df.task==t][df.evaluate==task][df.lay==la][df.gram==g]
+              #print("Plotting data", sent_data)
+              # Get the data value to display
+              if len(sent_data) >0:
+                plot_value=sent_data.iloc[0][d]
+              else:
+                plot_value=None
+                print("#NOTAVAILABLE  Current layer %s, h_dim %s, task %s , evaluate %s, lay %s, gram %s"%( 
+                        str(layer),str(h_d),t,task,str(la),
+                        str(g)),file=sys.stderr)
+              plot_list.append(plot_value)
+              #print("Current layer %s, h_dim %s, task %s , evaluate %s, lay %s, gram %s plot_value %s showing_data %s sent_data_len %s"%( 
+                        #str(layer),str(h_d),t,task,str(la),
+                        #str(g),str(plot_value),str(d),str(len(sent_data))))
+            if args.show_hd:
+              if diff_inte_lay:
+                 sho_layer=(la+1)
+              else:
+                 sho_layer=layer
+              #print("Ploting list", plot_list)
+              plt.plot(plot_list, markerfacecolor=h_dim_fco[h_d],
+                       marker=h_dim_marker[h_d], color=tasks[task],
+                       linestyle=num_layers[sho_layer])
+            else:
+              #print("Ploting list", plot_list)
+              plt.plot(plot_list,markerfacecolor='b')
+  my_xticks = task_order
+  my_xticks_color = [tasks[t] for t in task_order]
+  plta.xticks(range(4), my_xticks)
+  [t.set_color(i) for (i,t) in
+    zip( my_xticks_color, plt.xaxis.get_ticklabels())]
+  plt.set_title(d.upper())
+
+fig=plta.figure()
+df=pd.read_pickle('final_corrv2.df')
+for i,met in enumerate(args.data):
+  plt = plta.subplot(len(args.data)/2,len(args.data) - (len(args.data)/2),i+1)
+  configure_subplot(df,plt,met)
+
+plta.legend(custom_lines,legend_labels)
+fig.suptitle("Layer"+str(args.layer[0]).upper())
 plta.show()

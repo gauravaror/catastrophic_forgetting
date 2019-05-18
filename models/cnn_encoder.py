@@ -60,14 +60,12 @@ class CnnEncoder(Seq2VecEncoder):
         self._pooling = torch.nn.MaxPool1d(kernel_size=2)
         self._convolution_layers = [Conv1d(in_channels=self._embedding_dim,
                                            out_channels=self._num_filters,
-                                           padding=2,
                                            kernel_size=ngram_size)
                                     for ngram_size in self._ngram_filter_sizes]
         self._convolution_layers2 = []
         for i in range(self._num_layers-1):
             self._convolution_layers2.append([Conv1d(in_channels=self._num_filters,
                                                 out_channels=self._num_filters,
-                                                padding=3,
                                                 kernel_size=ngram_size)
                                             for ngram_size in self._ngram_filter_sizes])
         for i, conv_layer in enumerate(self._convolution_layers):
@@ -117,9 +115,7 @@ class CnnEncoder(Seq2VecEncoder):
             x=self._activation(x)
             gram_acti.append(x.data.clone().cpu())
             #print("Size After Activation", x.size())
-            filter_outputs.append(
-                    self._pooling(x)
-            )
+            filter_outputs.append(x)
         activations.append(gram_acti)
         #for f in filter_outputs:
         #  print(f.size())
@@ -136,8 +132,7 @@ class CnnEncoder(Seq2VecEncoder):
                 convolution_layer = getattr(self, 'conv_layer{}_{}'.format(a,i))
                 input_new=self._activation(convolution_layer(maxpool_output))
                 gram_acti.append(input_new.data.clone().cpu())
-                filter_outputs.append(
-                         self._pooling(input_new))
+                filter_outputs.append(input_new)
             maxpool_output = torch.cat(filter_outputs, dim=2) if len(filter_outputs) > 1 else filter_outputs[0]
             activations.append(gram_acti)
             #print("Layer", a ,maxpool_output.size())
