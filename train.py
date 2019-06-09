@@ -203,13 +203,7 @@ if args.joint:
 	 cuda_device=0,
 	 batch_weight_key=None)
 else:
-  for i in tasks:
-    print("\nTraining task ", i)
-    sys.stdout.flush()
-    if args.diff_class:
-      model.set_task(i)
-      iterator.index_with(vocabulary[i])
-    trainer = Trainer(model=model,
+  trainer = Trainer(model=model,
                   optimizer=optimizer,
                   iterator=iterator,
                   train_dataset=train_data[i],
@@ -220,6 +214,17 @@ else:
                   patience=1,
                   num_epochs=args.epochs,
 		  cuda_device=0)
+  for i in tasks:
+    print("\nTraining task ", i)
+    sys.stdout.flush()
+    if args.diff_class:
+      model.set_task(i)
+      iterator.index_with(vocabulary[i])
+      trainer.train_data = train_data[i]
+      trainer.validation_data = dev_data[i]
+      trainer.model = model
+      trainer.iterator = iterator
+      trainer._validation_iterator = iterator
     if not args.majority:
       trainer.train()
     #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
