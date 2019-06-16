@@ -475,7 +475,7 @@ class Trainer(TrainerBase):
         for key, value in self._metric_tracker.best_epoch_metrics.items():
             metrics["best_validation_" + key] = value
 
-        for epoch in range(epoch_counter, self._num_epochs):
+        for epoch in range(epoch_counter, epoch_counter + self._num_epochs):
             epoch_start_time = time.time()
             train_metrics = self._train_epoch(epoch)
 

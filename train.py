@@ -91,7 +91,7 @@ dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
 train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
 dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
 
-tasks = args.task
+tasks = list(args.task)
 
 print(type(train_data[tasks[0]]))
 joint_train = []
@@ -171,16 +171,21 @@ save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
-model.cuda(0)
+if torch.cuda.is_available():
+  model.cuda(0)
 
 optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08)
 
-move_optimizer_to_cuda(optimizer)
+if torch.cuda.is_available():
+  move_optimizer_to_cuda(optimizer)
 
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=32, sorting_keys=[("tokens", "num_tokens")])
 
 iterator.index_with(vocab)
+devicea = -1
+if torch.cuda.is_available():
+  devicea = 0
 
 overall_metrics = {}
 if args.joint:
@@ -192,7 +197,7 @@ if args.joint:
                   validation_dataset=joint_dev,
                   patience=args.patience,
                   num_epochs=args.epochs,
-		  cuda_device=0)
+		  cuda_device=devicea)
   trainer.train()
   for i in tasks:
     print("\nEvaluating ", i)
@@ -200,7 +205,7 @@ if args.joint:
     evaluate(model=model,
 	 instances=dev_data[i],
 	 data_iterator=iterator,
-	 cuda_device=0,
+	 cuda_device=devicea,
 	 batch_weight_key=None)
 else:
   trainer = Trainer(model=model,
@@ -213,15 +218,16 @@ else:
 		  histogram_interval=2,
                   patience=1,
                   num_epochs=args.epochs,
-		  cuda_device=0)
-  for i in tasks:
+		  cuda_device=devicea)
+  for tid,i in enumerate(tasks,1):
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.diff_class:
       model.set_task(i)
+      trainer._metric_tracker.clear()
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]
-      trainer.validation_data = dev_data[i]
+      trainer._validation_data = dev_data[i]
       trainer.model = model
       trainer.iterator = iterator
       trainer._validation_iterator = iterator
@@ -238,7 +244,7 @@ else:
       metric = evaluate(model=model,
 	 instances=dev_data[j],
 	 data_iterator=iterator1,
-	 cuda_device=0,
+	 cuda_device=devicea,
 	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
       if i not in overall_metrics:
@@ -246,6 +252,8 @@ else:
         overall_metrics[i][j] = metric
       else:
         overall_metrics[i][j] = metric
+      print("Adding timestep to trainer",tid, tasks)
+      trainer._tensorboard.add_train_scalar("evaluate_"+str(j), float(metric['accuracy']), timestep=tid)
     if not args.majority:
       print("\n Joint Evaluating ")
       sys.stdout.flush()
@@ -253,7 +261,7 @@ else:
       overall_metric = evaluate(model=model,
          instances=joint_dev,
          data_iterator=iterator,
-         cuda_device=0,
+         cuda_device=devicea,
          batch_weight_key=None)
       overall_metrics[i]["Joint"] = overall_metric
 
@@ -263,7 +271,7 @@ if not args.diff_class:
   overall_metric = evaluate(model=model,
 	 instances=joint_dev,
 	 data_iterator=iterator,
-	 cuda_device=0,
+	 cuda_device=devicea,
 	 batch_weight_key=None)
 
 save_weight.write_activations(overall_metrics)

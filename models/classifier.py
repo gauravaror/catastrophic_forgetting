@@ -18,7 +18,6 @@ from allennlp.models import Model
 from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
-import bad_graph_viz as bad
 
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda
@@ -86,7 +85,6 @@ class MainClassifier(Model):
     self.num_task = 0
     self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))])
     self.task2id = { "default": 0 }
-    self.hidden2tag = self.classification_layers[self.task2id["default"]]
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
     self.average  = Average()
@@ -99,12 +97,12 @@ class MainClassifier(Model):
     self.tasks_vocabulary[task_tag] = vocab
 
   def set_task(self, task_tag: str):
-    self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
+    #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.current_task = task_tag
     self.vocab = self.tasks_vocabulary[task_tag]
 
   def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
-
+    hidden2tag = self.classification_layers[self.task2id[self.current_task]]
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
     output = self.encoder(embeddings, mask)
@@ -114,7 +112,7 @@ class MainClassifier(Model):
         encoder_out = output
         activations = []
     self.activations = activations
-    tag_logits = self.hidden2tag(encoder_out)
+    tag_logits = hidden2tag(encoder_out)
     output = {'logits': tag_logits }
     if label is not None:
       _, preds = tag_logits.max(dim=1)
