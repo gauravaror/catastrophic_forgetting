@@ -552,9 +552,9 @@ class Trainer(TrainerBase):
             epochs_trained += 1
 
         # Load the best model state before returning
-        best_model_state = self._checkpointer.best_model_state()
-        if best_model_state:
-            self.model.load_state_dict(best_model_state)
+        #best_model_state = self._checkpointer.best_model_state()
+        #if best_model_state:
+        #    self.model.load_state_dict(best_model_state)
 
         return metrics
 

@@ -214,7 +214,7 @@ else:
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
 		  num_serialized_models_to_keep=0,
-		  serialization_dir=run_name+'/'+str(i),
+		  serialization_dir=run_name,
 		  histogram_interval=2,
                   patience=1,
                   num_epochs=args.epochs,
@@ -224,13 +224,13 @@ else:
     sys.stdout.flush()
     if args.diff_class:
       model.set_task(i)
-      trainer._metric_tracker.clear()
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]
       trainer._validation_data = dev_data[i]
       trainer.model = model
       trainer.iterator = iterator
       trainer._validation_iterator = iterator
+      trainer._metric_tracker.clear()
     if not args.majority:
       trainer.train()
     #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
@@ -252,7 +252,7 @@ else:
         overall_metrics[i][j] = metric
       else:
         overall_metrics[i][j] = metric
-      print("Adding timestep to trainer",tid, tasks)
+      print("Adding timestep to trainer",tid, tasks, j, float(metric['accuracy']))
       trainer._tensorboard.add_train_scalar("evaluate_"+str(j), float(metric['accuracy']), timestep=tid)
     if not args.majority:
       print("\n Joint Evaluating ")
@@ -264,6 +264,8 @@ else:
          cuda_device=devicea,
          batch_weight_key=None)
       overall_metrics[i]["Joint"] = overall_metric
+  trainer._tensorboard.add_train_scalar("finish", 1, timestep=1)
+  trainer._tensorboard._train_log.close()
 
 if not args.diff_class:
   print("\n Joint Evaluating ")
