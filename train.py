@@ -34,6 +34,10 @@ from models.CoLA import CoLADatasetReader
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
 
+majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358}
+
+sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772}
+
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
 parser.add_argument('--task', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
@@ -104,7 +108,7 @@ for i in tasks:
   if args.diff_class:
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
 ## Define Run Name and args to tensorboard for tracking.
-run_name="runs/"+args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code
+run_name="runs/"+args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
@@ -216,7 +220,7 @@ else:
 		  num_serialized_models_to_keep=0,
 		  serialization_dir=run_name,
 		  histogram_interval=2,
-                  patience=1,
+                  patience=args.patience,
                   num_epochs=args.epochs,
 		  cuda_device=devicea)
   for tid,i in enumerate(tasks,1):
@@ -254,6 +258,8 @@ else:
         overall_metrics[i][j] = metric
       print("Adding timestep to trainer",tid, tasks, j, float(metric['accuracy']))
       trainer._tensorboard.add_train_scalar("evaluate_"+str(j), float(metric['accuracy']), timestep=tid)
+      standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
+      trainer._tensorboard.add_train_scalar("standard_evaluate_"+str(j), standard_metric, timestep=tid)
     if not args.majority:
       print("\n Joint Evaluating ")
       sys.stdout.flush()
