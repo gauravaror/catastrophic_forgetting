@@ -192,6 +192,7 @@ if torch.cuda.is_available():
   devicea = 0
 
 overall_metrics = {}
+ostandard_metrics = {}
 if args.joint:
   print("\nTraining task : Joint ", tasks)
   trainer = Trainer(model=model,
@@ -251,14 +252,17 @@ else:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
+      standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
       if i not in overall_metrics:
         overall_metrics[i] = {}
         overall_metrics[i][j] = metric
+        ostandard_metrics[i] = {}
+        ostandard_metrics[i][j] = standard_metric
       else:
         overall_metrics[i][j] = metric
+        ostandard_metrics[i][j] = standard_metric
       print("Adding timestep to trainer",tid, tasks, j, float(metric['accuracy']))
       trainer._tensorboard.add_train_scalar("evaluate_"+str(j), float(metric['accuracy']), timestep=tid)
-      standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
       trainer._tensorboard.add_train_scalar("standard_evaluate_"+str(j), standard_metric, timestep=tid)
     if not args.majority:
       print("\n Joint Evaluating ")
@@ -270,6 +274,15 @@ else:
          cuda_device=devicea,
          batch_weight_key=None)
       overall_metrics[i]["Joint"] = overall_metric
+
+  # Calculate the catastrophic forgetting and add it into tensorboard before
+  # closing the tensorboard
+  c_acc_metric = get_catastrophic_metrics(tasks, overall_metrics)
+  c_standard_metric = get_catastrophic_metrics(tasks, ostandard_metrics)
+  for task in c_acc_metrics:
+      trainer._tensorboard.add_training_scalar("forgetting_metric/acc_"+ task, c_acc_metric[task])
+      trainer._tensorboard.add_training_scalar("forgetting_metric/standard_"+ task, c_standard_metric[task])
+
   trainer._tensorboard.add_train_scalar("finish", 1, timestep=1)
   trainer._tensorboard._train_log.close()
 
