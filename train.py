@@ -6,6 +6,7 @@ import sys
 import pandas as pd
 import random
 
+from models.utils import get_catastrophic_metric
 from allennlp.data.dataset_readers import DatasetReader
 from models.sst import StanfordSentimentTreeBankDatasetReader1
 from allennlp.data.vocabulary import Vocabulary
@@ -220,7 +221,7 @@ else:
                   validation_dataset=dev_data[i],
 		  num_serialized_models_to_keep=0,
 		  serialization_dir=run_name,
-		  histogram_interval=2,
+		  histogram_interval=100,
                   patience=args.patience,
                   num_epochs=args.epochs,
 		  cuda_device=devicea)
@@ -236,6 +237,7 @@ else:
       trainer.iterator = iterator
       trainer._validation_iterator = iterator
       trainer._metric_tracker.clear()
+      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), 1)
     if not args.majority:
       trainer.train()
     #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
@@ -262,8 +264,8 @@ else:
         overall_metrics[i][j] = metric
         ostandard_metrics[i][j] = standard_metric
       print("Adding timestep to trainer",tid, tasks, j, float(metric['accuracy']))
-      trainer._tensorboard.add_train_scalar("evaluate_"+str(j), float(metric['accuracy']), timestep=tid)
-      trainer._tensorboard.add_train_scalar("standard_evaluate_"+str(j), standard_metric, timestep=tid)
+      trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['accuracy']), timestep=tid)
+      trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j), standard_metric, timestep=tid)
     if not args.majority:
       print("\n Joint Evaluating ")
       sys.stdout.flush()
@@ -277,13 +279,11 @@ else:
 
   # Calculate the catastrophic forgetting and add it into tensorboard before
   # closing the tensorboard
-  c_acc_metric = get_catastrophic_metrics(tasks, overall_metrics)
-  c_standard_metric = get_catastrophic_metrics(tasks, ostandard_metrics)
-  for task in c_acc_metrics:
-      trainer._tensorboard.add_training_scalar("forgetting_metric/acc_"+ task, c_acc_metric[task])
-      trainer._tensorboard.add_training_scalar("forgetting_metric/standard_"+ task, c_standard_metric[task])
-
-  trainer._tensorboard.add_train_scalar("finish", 1, timestep=1)
+  c_standard_metric = get_catastrophic_metric(tasks, ostandard_metrics)
+  for tid,task in enumerate(c_standard_metric, 1):
+      trainer._tensorboard.add_train_scalar("forgetting_metric/standard_"+ task,
+					    c_standard_metric[task],
+					    timestep=tid)
   trainer._tensorboard._train_log.close()
 
 if not args.diff_class:
