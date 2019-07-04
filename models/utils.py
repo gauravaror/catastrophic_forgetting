@@ -10,7 +10,7 @@ def get_catastrophic_metric(tasks, metrics):
                    " taking calculation at tasks", tasks[j])
              step = i-j
              current_forgetting = (metrics[tasks[j]][tasks[j]] - metrics[tasks[i]][tasks[j]])
-             if step > 0 and (current_forgetting > 0):
+             if step > 0:
                forgetting_metrics[str(step) + "_step"] += current_forgetting
                count_task[str(step) + "_step"] += 1
              forgetting_metrics[tasks[j]] += current_forgetting
@@ -20,7 +20,8 @@ def get_catastrophic_metric(tasks, metrics):
            print("Calculating forgetting for", forgetting_metrics[task], count_task[task])
            forgetting[metric] = forgetting_metrics[metric] / count_task[metric]
            forgetting['total'] += forgetting[metric]
-         forgetting[metric] = forgetting_metrics[metric] / count_task[metric]
+         else:
+           forgetting[metric] = forgetting_metrics[metric] / count_task[metric]
      
      # Calculate total forgetting of all the
      forgetting['total'] = (forgetting['total']/(len(tasks) - 1))

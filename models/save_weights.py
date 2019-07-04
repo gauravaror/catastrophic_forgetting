@@ -41,8 +41,14 @@ class SaveWeights:
     dead_neurons=np.count_nonzero(axisz_non)
     return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
       
-    
-  def write_activations(self, overall_metrics):
+  def set_stat(self, task, evalua, lay, gram, metric, metric_value, trainer, timeset, val):
+    trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(task)+'/'str(lay)+'/'+str(gram),
+            metric_value,
+            timestep=timeset)
+    val[metric] = metric_value
+    return val
+
+  def write_activations(self, overall_metrics, trainer, tasks):
     lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527}
     final_val=[]
     first_task=list(self.activations.keys())[0]
@@ -66,18 +72,19 @@ class SaveWeights:
                 weight_corr='nan'
 
               val={}
+              timeset=tasks.index(evalua)
               dead,average_z,tot=self.get_zero_weights(current_activation)
-              val['avg_zeros'] = average_z
-              val['dead'] = dead
-              val['avg_zeros_per'] = average_z/tot
-              val['dead_per'] = dead/tot
+              val = set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, timeset, val)
+              val = set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, timeset, val)
+              val = set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, timeset, val)
+              val = set_stat(task, evalua, lay, gram, 'total', tot, trainer, timeset, val)
+              val = set_stat(task, evalua, lay, gram, 'corr', float(cor1['mean'][0]), trainer, timeset, val)
+              val = set_stat(task, evalua, lay, gram, 'weight_corr', float(weight_corr), trainer, timeset, val)
               val['total'] = tot
               val['evaluate']=str(evalua)
               val['gram']=int(gram)
               val['lay']=int(lay)
               val['task']=str(task)
-              val['corr']=float(cor1['mean'][0])
-              val['weight_corr']=float(weight_corr)
               val['layer'] = self.layer
               val['h_dim'] = self.hdim
               val['code'] = self.code

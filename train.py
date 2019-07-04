@@ -280,10 +280,12 @@ else:
   # Calculate the catastrophic forgetting and add it into tensorboard before
   # closing the tensorboard
   c_standard_metric = get_catastrophic_metric(tasks, ostandard_metrics)
+  print("Forgetting Results", c_standard_metric)
   for tid,task in enumerate(c_standard_metric, 1):
       trainer._tensorboard.add_train_scalar("forgetting_metric/standard_"+ task,
 					    c_standard_metric[task],
 					    timestep=tid)
+  save_weight.write_activations(overall_metrics, trainer)
   trainer._tensorboard._train_log.close()
 
 if not args.diff_class:
@@ -295,7 +297,6 @@ if not args.diff_class:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
 
-save_weight.write_activations(overall_metrics)
 print("Training on these tasks", args.task, 
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
