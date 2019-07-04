@@ -42,11 +42,11 @@ class SaveWeights:
     return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
       
   def set_stat(self, task, evalua, lay, gram, metric, metric_value, trainer, val, tasks):
+    puttask = task
+    timeset = (tasks.index(evalua) + 1)
     print("Adding training scalar: ", metric, " timeset ", timeset,
 	  ' evaluate ', evalua, ' task ', task,
           ' metric val ', metric_value)
-    puttask = task
-    timeset = (tasks.index(evalua) + 1)
     if metric == 'weight_corr':
         puttask=''
         timeset = (tasks.index(task) + 1)
