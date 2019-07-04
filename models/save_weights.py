@@ -73,8 +73,8 @@ class SaveWeights:
                 weight_corr='nan'
 
               val={}
-              timeset=tasks.index(evalua)
               dead,average_z,tot=self.get_zero_weights(current_activation)
+              timeset=tasks.index(evalua)
               val = self.set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, timeset, val)
               val = self.set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, timeset, val)
               val = self.set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, timeset, val)
@@ -102,6 +102,14 @@ class SaveWeights:
                 weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
               else:
                 weight_corr='nan'
+              timeset=(tasks.index(evalua) + 1)
+              dead,average_z,tot=self.get_zero_weights(current_activation)
+              val = self.set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'total', tot, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'corr', -12345, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'weight_corr', float(weight_corr), trainer, timeset, val)
               val['evaluate']=str(evalua)
               val['gram']=int(gram)
               val['layer'] = self.layer
@@ -111,7 +119,6 @@ class SaveWeights:
               val['task']=str(task)
               val['corr']=None
               val['weight_corr']=float(weight_corr)
-              dead,average_z,tot=self.get_zero_weights(current_activation)
               val['avg_zeros'] = average_z
               val['dead'] = dead
               val['total'] = tot
