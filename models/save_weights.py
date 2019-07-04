@@ -82,12 +82,12 @@ class SaveWeights:
 
               val={}
               dead,average_z,tot=self.get_zero_weights(current_activation)
-              val = self.set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'total', tot, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'corr', float(cor1['mean'][0]), trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
+              val = self.set_stat(evalu, task, lay, gram, 'avg_zeros', average_z, trainer, val, tasks)
+              val = self.set_stat(evalu, task, lay, gram, 'dead', average_z/tot, trainer, val, tasks)
+              val = self.set_stat(evalu, task, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
+              val = self.set_stat(evalu, task, lay, gram, 'total', tot, trainer, val, tasks)
+              val = self.set_stat(evalu, task, lay, gram, 'corr', float(cor1['mean'][0]), trainer, val, tasks)
+              val = self.set_stat(evalu, task, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
               val['total'] = tot
               val['evaluate']=str(evalua)
               val['gram']=int(gram)
@@ -111,12 +111,12 @@ class SaveWeights:
                 weight_corr='nan'
               timeset=(tasks.index(evalua) + 1)
               dead,average_z,tot=self.get_zero_weights(current_activation)
-              val = self.set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'total', tot, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'corr', -1, trainer, val, tasks)
-              val = self.set_stat(task, evalua, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'avg_zeros', average_z, trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'dead', average_z/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'total', tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'corr', -1, trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
               val['evaluate']=str(evalua)
               val['gram']=int(gram)
               val['layer'] = self.layer
