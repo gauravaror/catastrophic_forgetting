@@ -285,7 +285,7 @@ else:
       trainer._tensorboard.add_train_scalar("forgetting_metric/standard_"+ task,
 					    c_standard_metric[task],
 					    timestep=tid)
-  save_weight.write_activations(overall_metrics, trainer)
+  save_weight.write_activations(overall_metrics, trainer, tasks)
   trainer._tensorboard._train_log.close()
 
 if not args.diff_class:

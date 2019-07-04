@@ -42,7 +42,8 @@ class SaveWeights:
     return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
       
   def set_stat(self, task, evalua, lay, gram, metric, metric_value, trainer, timeset, val):
-    trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(task)+'/'str(lay)+'/'+str(gram),
+    print("Adding training scalar: ", metric)
+    trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(task)+'/'+str(lay)+'/'+str(gram),
             metric_value,
             timestep=timeset)
     val[metric] = metric_value
@@ -74,12 +75,12 @@ class SaveWeights:
               val={}
               timeset=tasks.index(evalua)
               dead,average_z,tot=self.get_zero_weights(current_activation)
-              val = set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, timeset, val)
-              val = set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, timeset, val)
-              val = set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, timeset, val)
-              val = set_stat(task, evalua, lay, gram, 'total', tot, trainer, timeset, val)
-              val = set_stat(task, evalua, lay, gram, 'corr', float(cor1['mean'][0]), trainer, timeset, val)
-              val = set_stat(task, evalua, lay, gram, 'weight_corr', float(weight_corr), trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'avg_zeros', average_z, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'dead', average_z/tot, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'dead_per', dead/tot, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'total', tot, trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'corr', float(cor1['mean'][0]), trainer, timeset, val)
+              val = self.set_stat(task, evalua, lay, gram, 'weight_corr', float(weight_corr), trainer, timeset, val)
               val['total'] = tot
               val['evaluate']=str(evalua)
               val['gram']=int(gram)
