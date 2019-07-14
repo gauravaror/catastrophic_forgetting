@@ -19,7 +19,7 @@ from tensorflow.core.util.event_pb2 import Event
 FOLDER_NAME = 'aggregates'
 
 
-def extract(dpath, subpath):
+def extract(dpath, subpath, args):
     scalar_accumulators = [EventAccumulator(str(dpath / dname / subpath)).Reload(
     ).scalars for dname in os.listdir(dpath) if dname != FOLDER_NAME]
 
@@ -31,10 +31,13 @@ def extract(dpath, subpath):
     all_keys_set = [set(scalar_accumulator.Keys()) for scalar_accumulator in scalar_accumulators]
     #assert len(set(all_keys_set)) == 1, "All runs need to have the same scalar keys. There are mismatches in {}".format(all_keys_set)
     keys = all_keys[0]
-    allowed_keys = ['evaluate',
-                    'standard_evaluate',
-                    'forgetting_metric', 
-                    'weight_stat']
+    if args.allowed_keys:
+        allowed_keys =  args.allowed_keys
+    else:
+        allowed_keys = ['evaluate',
+                        'standard_evaluate',
+                        'forgetting_metric', 
+                        'weight_stat']
     found_keys=[]
     for key in all_keys_set[0]:
         # Check if current key occurs starts with any of allowed keys.
@@ -76,7 +79,7 @@ def extract(dpath, subpath):
     return all_per_key
 
 
-def aggregate_to_summary(dpath, aggregation_ops, extracts_per_subpath):
+def aggregate_to_summary(dpath, aggregation_ops, extracts_per_subpath, args):
     for op in aggregation_ops:
         for subpath, all_per_key in extracts_per_subpath.items():
             path = Path("./") / FOLDER_NAME / op.__name__ / dpath.name / subpath
@@ -97,7 +100,7 @@ def write_summary(dpath, aggregations_per_key):
     writer.close()
 
 
-def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath):
+def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath, args):
     for subpath, all_per_key in extracts_per_subpath.items():
         for key, (steps, wall_times, values) in all_per_key.items():
             aggregations = [op(values, axis=0) for op in aggregation_ops]
@@ -122,11 +125,16 @@ def write_csv(dpath, subpath, key, fname, aggregations, steps, aggregation_ops):
     df.to_csv(path / file_name, sep=';')
 
 
-def aggregate(dpath, output, subpaths):
+def aggregate(dpath, args):
     name = dpath.name
 
-    #aggregation_ops = [np.mean, np.min, np.max, np.median, np.std, np.var]
-    aggregation_ops = [np.mean]
+    if args.operations:
+        ## TODO: Convert from operations in string to actual np operations
+        aggregation_ops = args.operations
+        aggregation_ops = [np.mean]
+    else:
+        aggregation_ops = [np.mean, np.min, np.max, np.median, np.std, np.var]
+        aggregation_ops = args.operations
 
     ops = {
         'summary': aggregate_to_summary,
@@ -135,10 +143,10 @@ def aggregate(dpath, output, subpaths):
 
     print("Started aggregation {}".format(name))
 
-    extracts_per_subpath = {subpath: extract(dpath, subpath) for subpath in subpaths}
+    extracts_per_subpath = {subpath: extract(dpath, subpath, args) for subpath in args.subpaths}
     print("Subpaths extracted ", extracts_per_subpath)
 
-    ops.get(output)(dpath, aggregation_ops, extracts_per_subpath)
+    ops.get(args.output)(dpath, aggregation_ops, extracts_per_subpath, args)
 
     print("Ended aggregation {}".format(name))
 
@@ -154,6 +162,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, help="main path for tensorboard files", default=os.getcwd())
     parser.add_argument("--subpaths", type=str, action='append', help="subpath sturctures", default=["log/train"])
+    parser.add_argument("--allowed_keys", type=str, action='append', help="Keys to aggregate on")
+    parser.add_argument("--operations", type=str, action='append', help="Default operations to perform.")
     parser.add_argument("--output", type=str, help="aggregation can be saves as tensorboard file (summary) or as table (csv)", default='summary')
 
     args = parser.parse_args()
@@ -173,4 +183,4 @@ if __name__ == '__main__':
     if args.output not in ['summary', 'csv']:
         raise argparse.ArgumentTypeError("Parameter {} is not summary or csv".format(args.output))
 
-    aggregate(path, args.output, args.subpaths)
+    aggregate(path, args)
