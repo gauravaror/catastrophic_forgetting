@@ -82,7 +82,7 @@ def extract(dpath, subpath, args):
 def aggregate_to_summary(dpath, aggregation_ops, extracts_per_subpath, args):
     for op in aggregation_ops:
         for subpath, all_per_key in extracts_per_subpath.items():
-            path = Path("./") / FOLDER_NAME / op.__name__ / dpath.name / subpath
+            path = Path(args.store_path) / FOLDER_NAME / op.__name__ / dpath.name / subpath
             aggregations_per_key = {key: (steps, wall_times, op(values, axis=0)) for key, (steps, wall_times, values) in all_per_key.items()}
             write_summary(path, aggregations_per_key)
 
@@ -164,6 +164,7 @@ if __name__ == '__main__':
     parser.add_argument("--subpaths", type=str, action='append', help="subpath sturctures", default=["log/train"])
     parser.add_argument("--allowed_keys", type=str, action='append', help="Keys to aggregate on")
     parser.add_argument("--operations", type=str, action='append', help="Default operations to perform.")
+    parser.add_argument("--store_path", type=str, help="Default store path for arguments.")
     parser.add_argument("--output", type=str, help="aggregation can be saves as tensorboard file (summary) or as table (csv)", default='summary')
 
     args = parser.parse_args()
