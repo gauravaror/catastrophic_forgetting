@@ -31,14 +31,15 @@ def extract(dpath, subpath):
     all_keys_set = [set(scalar_accumulator.Keys()) for scalar_accumulator in scalar_accumulators]
     #assert len(set(all_keys_set)) == 1, "All runs need to have the same scalar keys. There are mismatches in {}".format(all_keys_set)
     keys = all_keys[0]
-    allowed_keys = ['evaluate/subjectivity', 'standard_evaluate/subjectivity', 'evaluate/sst',
-             'standard_evaluate/sst', 'evaluate/cola', 'standard_evaluate/cola',
-             'evaluate/trec', 'standard_evaluate/trec', 'forgetting_metric/standard_cola', 
-             'forgetting_metric/standard_trec', 'forgetting_metric/standard_sst',
-             'forgetting_metric/standard_subjectivity']
+    allowed_keys = ['evaluate',
+                    'standard_evaluate',
+                    'forgetting_metric', 
+                    'weight_stat']
     found_keys=[]
     for key in all_keys_set[0]:
-        if key in allowed_keys:
+        # Check if current key occurs starts with any of allowed keys.
+        log_key = (len(list(filter(lambda x: key.startswith(x), allowed_keys))) > 0)
+        if log_key:
             found_keys.append(key)
     keys=found_keys
 
@@ -78,7 +79,7 @@ def extract(dpath, subpath):
 def aggregate_to_summary(dpath, aggregation_ops, extracts_per_subpath):
     for op in aggregation_ops:
         for subpath, all_per_key in extracts_per_subpath.items():
-            path = dpath / FOLDER_NAME / op.__name__ / dpath.name / subpath
+            path = Path("./") / FOLDER_NAME / op.__name__ / dpath.name / subpath
             aggregations_per_key = {key: (steps, wall_times, op(values, axis=0)) for key, (steps, wall_times, values) in all_per_key.items()}
             write_summary(path, aggregations_per_key)
 
@@ -93,6 +94,7 @@ def write_summary(dpath, aggregations_per_key):
             writer.add_event(scalar_event)
 
         writer.flush()
+    writer.close()
 
 
 def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath):
@@ -123,7 +125,8 @@ def write_csv(dpath, subpath, key, fname, aggregations, steps, aggregation_ops):
 def aggregate(dpath, output, subpaths):
     name = dpath.name
 
-    aggregation_ops = [np.mean, np.min, np.max, np.median, np.std, np.var]
+    #aggregation_ops = [np.mean, np.min, np.max, np.median, np.std, np.var]
+    aggregation_ops = [np.mean]
 
     ops = {
         'summary': aggregate_to_summary,
