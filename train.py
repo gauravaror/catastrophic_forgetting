@@ -318,8 +318,8 @@ for d in tasks:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
   for k in tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
+    print_data = print_data + "\t" + str(overall_metrics[d][k]["accuracy"])
+    insert_pandas_dict[k] = overall_metrics[d][k]["accuracy"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
 joint_print_data = "Joint\t"
@@ -344,8 +344,8 @@ for d in tasks:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'average'}
   print_data=d
   for k in tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["average"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["average"]
+    print_data = print_data + "\t" + str(overall_metrics[d][k]["average"])
+    insert_pandas_dict[k] = overall_metrics[d][k]["average"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
 joint_print_data = "Joint\t"
