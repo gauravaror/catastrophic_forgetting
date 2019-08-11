@@ -60,6 +60,7 @@ def extract(dpath, subpath, args):
         #del keys_list[i]
 
     all_scalar_events_per_key = [[scalar_accumulator.Items(key) for scalar_accumulator in scalar_accumulators] for key in keys]
+    print(all_scalar_events_per_key)
 
     # Get and validate all steps per key
     all_steps_per_key = [[tuple(scalar_event.step for scalar_event in scalar_events) for scalar_events in all_scalar_events]
@@ -101,10 +102,29 @@ def write_summary(dpath, aggregations_per_key):
 
 
 def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath, args):
+    print(" Got in aggregations function")
+    fullname = dpath.name
+    sub_parts = fullname.split('__')
+    exper = sub_parts[0]
+    main_sub_parts = sub_parts[1].split('_')
+    layer = main_sub_parts[0]
+    hdim = main_sub_parts[2]
+    code = sub_parts[2]
     for subpath, all_per_key in extracts_per_subpath.items():
         for key, (steps, wall_times, values) in all_per_key.items():
             aggregations = [op(values, axis=0) for op in aggregation_ops]
-            write_csv(dpath, subpath, key, dpath.name, aggregations, steps, aggregation_ops)
+            agg_final = {}
+            print("This is tracking , : ", key, steps, list(aggregations[0]))
+            for step, agg in zip(steps, list(aggregations[0])):
+                agg_final['step_' + str(step)] = agg
+
+            agg_final['exper'] = exper
+            agg_final['layer'] = layer
+            agg_final['hdim'] = hdim
+            agg_final['code'] = code
+            print("Steps things, ", agg_final)
+
+            write_csv(dpath, subpath, key, dpath.name, aggregations, steps, aggregation_ops, args, [agg_final])
 
 
 def get_valid_filename(s):
@@ -112,17 +132,40 @@ def get_valid_filename(s):
     return re.sub(r'(?u)[^-\w.]', '', s)
 
 
-def write_csv(dpath, subpath, key, fname, aggregations, steps, aggregation_ops):
-    path = dpath / FOLDER_NAME
-
+def write_csv(dpath, subpath, key, fname, aggregations, steps, aggregation_ops, args, agg_df):
+    path = Path(args.store_path) / FOLDER_NAME / dpath.name 
+    
     if not path.exists():
         os.makedirs(path)
+
 
     file_name = get_valid_filename(key) + '-' + get_valid_filename(subpath) + '-' + fname + '.csv'
     print("Writing csv for file : ", file_name)
     aggregation_ops_names = [aggregation_op.__name__ for aggregation_op in aggregation_ops]
     df = pd.DataFrame(np.transpose(aggregations), index=steps, columns=aggregation_ops_names)
     df.to_csv(path / file_name, sep=';')
+
+    if args.store_df:
+        df_path = Path(args.store_path) / FOLDER_NAME / (key + '.df')
+        df_path_dir = Path(args.store_path) / FOLDER_NAME / key
+        if not df_path_dir.exists():
+            os.makedirs(df_path_dir)
+
+        print("Store DF", df_path, os.path.isfile(df_path))
+        if os.path.isfile(df_path):
+            key_df = pd.read_pickle(df_path)
+        else:
+            key_df = pd.DataFrame()
+        df_stor = pd.DataFrame(agg_df)
+        print("Store_df ", df_stor)
+        if not df_stor.empty:
+            if key_df.empty:
+                df_stor.to_pickle(df_path)
+            else:
+                print("old_df ", key_df)
+                key_df = key_df.append(df_stor, ignore_index=True)
+                print("New_df ", key_df)
+                key_df.to_pickle(df_path)
 
 
 def aggregate(dpath, args):
@@ -165,6 +208,7 @@ if __name__ == '__main__':
     parser.add_argument("--allowed_keys", type=str, action='append', help="Keys to aggregate on")
     parser.add_argument("--operations", type=str, action='append', help="Default operations to perform.")
     parser.add_argument("--store_path", type=str, help="Default store path for arguments.")
+    parser.add_argument("--store_df", action='store_true', help="Makes us to store the values in dataframe for analysis.")
     parser.add_argument("--output", type=str, help="aggregation can be saves as tensorboard file (summary) or as table (csv)", default='summary')
 
     args = parser.parse_args()

@@ -114,7 +114,7 @@ else:
 
 fig, plt = plta.subplots()
 task_order=show_config.split("_")[1:]
-df=pd.read_pickle('13thAprilcurrent_dataset.df')
+df=pd.read_pickle('cnn_9_aug_2019.df')
 for l_id,layer_ in enumerate(show_layer):
   for h_did,h_d_ in enumerate(show_dim):
     for task in show_tasks:
@@ -123,8 +123,8 @@ for l_id,layer_ in enumerate(show_layer):
       plot_list=[]
       ord=0
       for t in task_order:
-        sent_data=df[df.experiment==show_experiment][df.code==show_config][df.layer==layer][df.h_dim==h_d][df.task==task][df.metric=="accuracy"][[t]]
-        print("Trained Tasks ", task, "show tasks ", t,sent_data, "SOTA ", sota[task], "PLOTTED VALUE", mean_confidence_interval(sent_data)[0]/sota[task], "Layer", layer, "dimension", h_d)
+        sent_data=df[df.experiment==show_experiment][df.code==show_config][df.layer==layer][df.h_dim==h_d][df.task==t][df.metric=="accuracy"][[task]]
+        print("Trained Tasks ", t, "show tasks ", task,sent_data, "SOTA ", sota[task], "PLOTTED VALUE", mean_confidence_interval(sent_data)[0]/sota[task], "Layer", layer, "dimension", h_d)
         ci_data=mean_confidence_interval(sent_data)
         print(ci_data)
         # Normalize values for the plot
