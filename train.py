@@ -128,6 +128,18 @@ for i in tasks:
   joint_dev += dev_data[i]
   if args.diff_class:
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
+
+
+train_code=""
+for i in train:
+  train_code += str("_"+str(i))
+
+
+evaluate_code=""
+for i in evaluate_tasks:
+  evaluate_code += str("_"+str(i))
+
+
 ## Define Run Name and args to tensorboard for tracking.
 run_name="runs/"+args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
 
@@ -270,6 +282,11 @@ else:
         iterator1.index_with(vocabulary[j])
         if args.few_shot:
           print("Now few_shot training ", j," \n")
+          for name, param in model.named_parameters():
+            print("Named parameters for freezing ", name)
+            if name.startswith('encoder'):
+              print("Freezing param ", name)
+              param.require_grad = False
           iterator1 = BucketIterator(batch_size=1, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer.train_data = few_data[j]
@@ -385,5 +402,10 @@ for o in tasks:
   joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
 '''
 df=pd.DataFrame(insert_in_pandas_list)
+
+if args.few_shot:
+  initial_path += ('_train_' + train_code)
+  initial_path += ('_evaluate_' + evaluate_code)
+
 df.to_pickle(path=str(initial_path+task_code+"_"+str(args.layers)+"_"+str(args.h_dim)+"_"+str(args.tryno)+".df"))
 #print(joint_print_data)
