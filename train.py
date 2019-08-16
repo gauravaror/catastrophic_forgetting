@@ -44,6 +44,7 @@ parser = argparse.ArgumentParser(description='Argument for catastrophic training
 parser.add_argument('--task', action='append', help="Task to be added to model, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity. If train and evaluate options are not provide they default to tasks option.\n")
 parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
+parser.add_argument('--few_shot', action='store_true', help="Train task on few shot learning before evaluating.")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
@@ -84,19 +85,24 @@ reader_trec = TrecDatasetReader()
 
 train_data = {}
 dev_data = {}
+few_data = {}
 vocabulary = {}
 
 train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
 dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
+few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
 
 train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
 dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
+few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
 
 train_data["trec"] = reader_trec.read('data/TREC/train.txt')
 dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
+few_data["trec"] = reader_trec.read('data/TREC/few.txt')
 
 train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
 dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
+few_data["subjectivity"] = reader_trec.read('data/Subjectivity/few.txt')
 
 tasks = list(args.task)
 
@@ -262,6 +268,18 @@ else:
         model.set_task(j)
         iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
+        if args.few_shot:
+          print("Now few_shot training ", j," \n")
+          iterator1 = BucketIterator(batch_size=1, sorting_keys=[("tokens", "num_tokens")])
+          iterator1.index_with(vocabulary[j])
+          trainer.train_data = few_data[j]
+          trainer._validation_data = few_data[j]
+          trainer.iterator = iterator1
+          trainer._metric_tracker.clear()
+          trainer.train()
+          iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
+          iterator1.index_with(vocabulary[j])
+      print("Now evaluating ", j)
       metric = evaluate(model=model,
 	 instances=dev_data[j],
 	 data_iterator=iterator1,
