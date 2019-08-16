@@ -24,6 +24,8 @@ def get_catastrophic_metric(tasks, metrics):
            forgetting[metric] = forgetting_metrics[metric] / count_task[metric]
      
      # Calculate total forgetting of all the
-     forgetting['total'] = (forgetting['total']/(len(tasks) - 1))
+     length_tasks = len(tasks) - 1
+     if length_tasks > 1:
+         forgetting['total'] = (forgetting['total']/(len(tasks) - 1))
 
      return forgetting

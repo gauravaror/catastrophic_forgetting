@@ -41,7 +41,9 @@ sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772}
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
-parser.add_argument('--task', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
+parser.add_argument('--task', action='append', help="Task to be added to model, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity. If train and evaluate options are not provide they default to tasks option.\n")
+parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
+parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
@@ -97,6 +99,18 @@ train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
 dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
 
 tasks = list(args.task)
+
+if not args.train:
+   print("Train option not provided,  defaulting to tasks")
+   train = tasks
+else:
+   train = list(args.train)
+
+if not args.evaluate:
+   print("evaluate option not provided,  defaulting to tasks")
+   evaluate_tasks = tasks
+else:
+   evaluate_tasks = list(args.evaluate)
 
 print(type(train_data[tasks[0]]))
 joint_train = []
@@ -205,7 +219,7 @@ if args.joint:
                   num_epochs=args.epochs,
 		  cuda_device=devicea)
   trainer.train()
-  for i in tasks:
+  for i in evaluate_tasks:
     print("\nEvaluating ", i)
     sys.stdout.flush()
     evaluate(model=model,
@@ -225,7 +239,7 @@ else:
                   patience=args.patience,
                   num_epochs=args.epochs,
 		  cuda_device=devicea)
-  for tid,i in enumerate(tasks,1):
+  for tid,i in enumerate(train,1):
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.diff_class:
@@ -241,7 +255,7 @@ else:
     if not args.majority:
       trainer.train()
     #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
-    for j in tasks:
+    for j in evaluate_tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
       if args.diff_class:
@@ -255,14 +269,14 @@ else:
 	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
       standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
-      if i not in overall_metrics:
-        overall_metrics[i] = {}
-        overall_metrics[i][j] = metric
-        ostandard_metrics[i] = {}
-        ostandard_metrics[i][j] = standard_metric
+      if j not in overall_metrics:
+        overall_metrics[j] = {}
+        overall_metrics[j][i] = metric
+        ostandard_metrics[j] = {}
+        ostandard_metrics[j][i] = standard_metric
       else:
-        overall_metrics[i][j] = metric
-        ostandard_metrics[i][j] = standard_metric
+        overall_metrics[j][i] = metric
+        ostandard_metrics[j][i] = standard_metric
       print("Adding timestep to trainer",tid, tasks, j, float(metric['accuracy']))
       trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['accuracy']), timestep=tid)
       trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j), standard_metric, timestep=tid)
@@ -270,19 +284,18 @@ else:
       print("\n Joint Evaluating ")
       sys.stdout.flush()
       model.set_task("default")
-      overall_metric = evaluate(model=model,
-         instances=joint_dev,
-         data_iterator=iterator,
-         cuda_device=devicea,
-         batch_weight_key=None)
-      overall_metrics[i]["Joint"] = overall_metric
-
+  #    overall_metric = evaluate(model=model,
+  #       instances=joint_dev,
+  #       data_iterator=iterator,
+  #       cuda_device=devicea,
+  #       batch_weight_key=None)
+  #    overall_metrics[i]["Joint"] = overall_metric
   # Calculate the catastrophic forgetting and add it into tensorboard before
   # closing the tensorboard
-  c_standard_metric = get_catastrophic_metric(tasks, ostandard_metrics)
+  c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
   print("Forgetting Results", c_standard_metric)
   for tid,task in enumerate(c_standard_metric, 1):
-      trainer._tensorboard.add_train_scalar("forgetting_metric/standard_"+ task,
+      trainer._tensorboard.add_train_scalar("forgetting_metric/standard_" + task,
 					    c_standard_metric[task],
 					    timestep=tid)
   save_weight.write_activations(overall_metrics, trainer, tasks)
@@ -308,49 +321,51 @@ print("Training on these tasks", args.task,
 
 print("Accuracy and Loss")
 header="Accuracy"
-for i in tasks:
+for i in evaluate_tasks:
   header = header + "\t" + i
 insert_in_pandas_list=[]
 print(header)
-for d in tasks:
-  current_metrics = overall_metrics[d]
+for d in train:
   print_data=d
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
-  for k in tasks:
+  for k in evaluate_tasks:
     print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
     insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
+'''
 joint_print_data = "Joint\t"
 #for o in tasks:
 #  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
 print(joint_print_data)
+'''
 print("\n\n")
-initial_path="dfs/Results"
+initial_path="dfs/Results" + args.run_name
 if not args.seq2vec:
-  intial_path="dfs_att/Results_selfattention"
+  intial_path="dfs_att/Results_selfattention" + args.run_name
 if args.cnn:
-  initial_path="dfs/Results_CNN_"
+  initial_path="dfs/Results_CNN_" + args.run_name
 if args.gru:
-  initial_path="dfs/Results_GRU_"
+  initial_path="dfs/Results_GRU_" + args.run_name
 
 header="Loss"
-for i in tasks:
+for i in evaluate_tasks:
   header = header + "\t" + i
 print(header)
-for d in tasks:
-  current_metrics = overall_metrics[d]
+for d in train:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'average'}
   print_data=d
-  for k in tasks:
+  for k in evaluate_tasks:
     print_data = print_data + "\t" + str(overall_metrics[k][d]["average"])
     insert_pandas_dict[k] = overall_metrics[k][d]["average"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
+'''
 joint_print_data = "Joint\t"
 for o in tasks:
   joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
+'''
 df=pd.DataFrame(insert_in_pandas_list)
 df.to_pickle(path=str(initial_path+task_code+"_"+str(args.layers)+"_"+str(args.h_dim)+"_"+str(args.tryno)+".df"))
-print(joint_print_data)
+#print(joint_print_data)

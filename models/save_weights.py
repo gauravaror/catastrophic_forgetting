@@ -100,7 +100,7 @@ class SaveWeights:
               val['layer'] = self.layer
               val['h_dim'] = self.hdim
               val['code'] = self.code
-              val['accuracy'] = overall_metrics[task][evalua]['accuracy']
+              val['accuracy'] = overall_metrics[evalua][task]['accuracy']
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),str(cor1['mean'])))
             except Exception as e:
               val={}
@@ -136,7 +136,7 @@ class SaveWeights:
               val['total'] = tot
               val['avg_zeros_per'] = average_z/tot
               val['dead_per'] = dead/tot
-              val['accuracy'] = overall_metrics[task][evalua]['accuracy']
+              val['accuracy'] = overall_metrics[evalua][task]['accuracy']
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),"Failed SVC"))
               print(e)
             final_val.append(val)
