@@ -84,7 +84,7 @@ class SaveWeights:
               plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram)
               print("Finished TSNE Embeddings ")
               label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
-              trainer._tensorboard._train_log.add_figure(label_figure, plot)
+              trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
               print("Added tensorboard TSNE Embeddings ")
 
               # Extract Weights
@@ -102,9 +102,9 @@ class SaveWeights:
               val = self.set_stat(evalua, task, lay, gram, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
               val = self.set_stat(evalua, task, lay, gram, 'dead', dead, trainer, val, tasks)
               val = self.set_stat(evalua, task, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(evalu, task, lay, gram, 'total', tot, trainer, val, tasks)
-              val = self.set_stat(evalu, task, lay, gram, 'corr', float(cor1['mean'][0]), trainer, val, tasks)
-              val = self.set_stat(evalu, task, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'total', tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'corr', float(cor1['mean'][0]), trainer, val, tasks)
+              val = self.set_stat(evalua, task, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
               val['total'] = tot
               val['evaluate']=str(evalua)
               val['gram']=int(gram)

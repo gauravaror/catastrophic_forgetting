@@ -3,6 +3,19 @@ from sklearn.manifold import TSNE
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import io
+import PIL.Image
+from torchvision.transforms import ToTensor
+
+def gen_plot(plt):
+    """Create a pyplot plot and save to buffer."""
+    buf = io.BytesIO()
+    plt.savefig(buf, format='jpeg')
+    buf.seek(0)
+    image = PIL.Image.open(buf)
+    image = ToTensor()(image).unsqueeze(0)
+    return image
 
 def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram):
   print("Running TSNE plotting")
@@ -19,7 +32,7 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
     else:
       plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"bo")
   plt.savefig("embedding_plot_"+ "_layer_" + str(getlayer)+ "_train_"+ train + "_evaluate_" + evaluate + '_gram_' + str(gram) + ".png")
-  return plt.gcf()
+  return gen_plot(plt)
 
 def get_catastrophic_metric(tasks, metrics):
      forgetting_metrics = Counter()
