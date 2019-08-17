@@ -16,6 +16,7 @@ class SaveWeights:
     self.encoder_type = encoder_
     self.tryno=1
     self.activations={}
+    self.labels={}
     self.weights={}
     self.layer=layer
     self.hdim=hdim
