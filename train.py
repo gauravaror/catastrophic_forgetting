@@ -297,6 +297,7 @@ else:
           trainer.train()
           iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
+          trainer._num_epochs = args.epochs
       print("Now evaluating ", j)
       metric = evaluate(model=model,
 	 instances=dev_data[j],
