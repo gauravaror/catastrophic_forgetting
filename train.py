@@ -61,6 +61,7 @@ parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
+parser.add_argument('--storage_prefix', type=str, default="./runs/", help="This is used to store the runs inside runs folder")
 
 args = parser.parse_args()
 
@@ -141,7 +142,7 @@ for i in evaluate_tasks:
 
 
 ## Define Run Name and args to tensorboard for tracking.
-run_name="runs/"+args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
+run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
@@ -251,12 +252,13 @@ else:
                   iterator=iterator,
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
-		  num_serialized_models_to_keep=0,
-		  serialization_dir=run_name,
-		  histogram_interval=100,
+                  num_serialized_models_to_keep=1,
+                  model_save_interval=1,
+                  serialization_dir=run_name,
+                  histogram_interval=100,
                   patience=args.patience,
                   num_epochs=args.epochs,
-		  cuda_device=devicea)
+                  cuda_device=devicea)
   for tid,i in enumerate(train,1):
     print("\nTraining task ", i)
     sys.stdout.flush()
