@@ -291,6 +291,7 @@ else:
           iterator1.index_with(vocabulary[j])
           trainer.train_data = few_data[j]
           trainer._validation_data = few_data[j]
+          trainer._num_epochs = 10
           trainer.iterator = iterator1
           trainer._metric_tracker.clear()
           trainer.train()
