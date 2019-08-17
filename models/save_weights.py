@@ -24,10 +24,11 @@ class SaveWeights:
   def add_activations(self, model, train, evaluated):
     if not train in self.activations:
       self.activations[train] = {}
+      self.labels[train] = {}
       if self.encoder_type == "cnn":
           self.weights[train] = self.get_cnn_weights(model)
       #self.activations[train]["trained_task"] = train
-    self.activations[train][evaluated] = model.get_activations()
+    self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
 
   def get_zero_weights(self, activations):
 
