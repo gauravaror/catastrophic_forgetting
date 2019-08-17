@@ -281,12 +281,17 @@ else:
         iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
         if args.few_shot:
+          metric = evaluate(model=model,
+	                    instances=dev_data[j],
+	                    data_iterator=iterator1,
+	                    cuda_device=devicea,
+	                    batch_weight_key=None)
           print("Now few_shot training ", j," \n")
           for name, param in model.named_parameters():
             print("Named parameters for freezing ", name)
             if name.startswith('encoder') or name.startswith('word_embeddings'):
               print("Freezing param ", name)
-              param.require_grad = False
+              param.requires_grad = False
           iterator1 = BucketIterator(batch_size=1, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer.model = model
