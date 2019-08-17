@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import sys
 from models import get_cca as wcca
+from models import utils
 
 sys.path.append("..")
 from svcca import cca_core as svc
@@ -75,6 +76,16 @@ class SaveWeights:
               first_activation=self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               cor1=svc.get_cca_similarity(first_activation,current_activation)
+              this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
+              this_label = self.labels[task][evalua].cpu().numpy()
+              print("Running TSNE Embeddings ")
+              print("Running TSNE Embeddings ", this_activation.shape)
+              print("Running TSNE Embeddings ", this_label.shape)
+              plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram)
+              print("Finished TSNE Embeddings ")
+              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
+              trainer._tensorboard._train_log.add_figure(label_figure, plot)
+              print("Added tensorboard TSNE Embeddings ")
 
               # Extract Weights
               if len(self.weights) > 0:
@@ -105,6 +116,7 @@ class SaveWeights:
               val['accuracy'] = overall_metrics[evalua][task]['accuracy']
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),str(cor1['mean'])))
             except Exception as e:
+              print(e)
               val={}
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               # Extract Weights

@@ -1,4 +1,25 @@
 from collections import Counter
+from sklearn.manifold import TSNE
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram):
+  print("Running TSNE plotting")
+  tnse_embedding = TSNE(n_components=2, perplexity=30.0).fit_transform(data_view_tsne)
+  print("Running TSNE got tsne embeddings back", tnse_embedding)
+  for i in range(0, len(tnse_embedding)):
+    print(i,tnse_embedding[i],labels_orig[i])
+    if labels_orig[i] == 1:
+      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"ro")
+    elif labels_orig[i] == 2:
+      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"go")
+    elif labels_orig[i] == 3:
+      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"yo")
+    else:
+      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"bo")
+  plt.savefig("embedding_plot_"+ "_layer_" + str(getlayer)+ "_train_"+ train + "_evaluate_" + evaluate + '_gram_' + str(gram) + ".png")
+  return plt.gcf()
 
 def get_catastrophic_metric(tasks, metrics):
      forgetting_metrics = Counter()
