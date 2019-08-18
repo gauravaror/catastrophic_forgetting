@@ -53,6 +53,7 @@ parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs t
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--patience', type=int, default=10, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
+parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
 parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
@@ -218,7 +219,7 @@ if torch.cuda.is_available():
   move_optimizer_to_cuda(optimizer)
 
 torch.set_num_threads(4)
-iterator = BucketIterator(batch_size=32, sorting_keys=[("tokens", "num_tokens")])
+iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
 
 iterator.index_with(vocab)
 devicea = -1
@@ -264,6 +265,7 @@ else:
     sys.stdout.flush()
     if args.diff_class:
       model.set_task(i)
+      trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]
       trainer._validation_data = dev_data[i]
@@ -280,29 +282,32 @@ else:
       sys.stdout.flush()
       if args.diff_class:
         model.set_task(j)
+        # This batch size of 10000 is hack to get activation while doing evaluation.
         iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
         if args.few_shot:
-          metric = evaluate(model=model,
+          met = evaluate(model=model,
 	                    instances=dev_data[j],
 	                    data_iterator=iterator1,
 	                    cuda_device=devicea,
 	                    batch_weight_key=None)
-          print("Now few_shot training ", j," \n")
+          print("Now few_shot training ", j, "Metric before ", met," \n")
           for name, param in model.named_parameters():
             print("Named parameters for freezing ", name)
             if name.startswith('encoder') or name.startswith('word_embeddings'):
               print("Freezing param ", name)
               param.requires_grad = False
-          iterator1 = BucketIterator(batch_size=1, sorting_keys=[("tokens", "num_tokens")])
+          iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer.model = model
           trainer.train_data = few_data[j]
           trainer._validation_data = few_data[j]
-          trainer._num_epochs = 10
           trainer.iterator = iterator1
           trainer._metric_tracker.clear()
+          print("Doing few shot traing current things is ", trainer._metric_tracker._epochs_with_no_improvement, trainer._metric_tracker._epoch_number)
+          trainer._num_epochs = 10
           trainer.train()
+          # Back to hack of 10000 to get all the activations together as
           iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
