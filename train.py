@@ -142,6 +142,10 @@ for i in evaluate_tasks:
   evaluate_code += str("_"+str(i))
 
 
+if args.few_shot:
+  task_code += ('_train_' + train_code)
+  task_code += ('_evaluate_' + evaluate_code)
+
 ## Define Run Name and args to tensorboard for tracking.
 run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
 
