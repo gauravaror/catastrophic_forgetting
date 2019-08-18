@@ -28,7 +28,7 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
       plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"yo")
     else:
       plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"bo")
-  plt.savefig("embedding_plot_"+ "_layer_" + str(getlayer)+ "_train_"+ train + "_evaluate_" + evaluate + '_gram_' + str(gram) + ".png")
+  #plt.savefig("embedding_plot_"+ "_layer_" + str(getlayer)+ "_train_"+ train + "_evaluate_" + evaluate + '_gram_' + str(gram) + ".png")
   return gen_plot(plt)
 
 def get_catastrophic_metric(tasks, metrics):
