@@ -76,6 +76,7 @@ class SaveWeights:
               first_activation=self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               cor1=svc.get_cca_similarity(first_activation,current_activation)
+
               this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
               this_label = self.labels[task][evalua].cpu().numpy()
               plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram)
@@ -114,6 +115,15 @@ class SaveWeights:
               print(e)
               val={}
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
+
+              # Add images for activation TSNE.
+
+              this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
+              this_label = self.labels[task][evalua].cpu().numpy()
+              plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram)
+              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
+              trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+
               # Extract Weights
               if len(self.weights) > 0:
                 first_weight=self.weights[first_task][lay][gram]
