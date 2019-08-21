@@ -124,12 +124,19 @@ print(type(train_data[tasks[0]]))
 joint_train = []
 joint_dev = []
 task_code=""
+labels_mapping={}
 for i in tasks:
   task_code+=str("_"+str(i))
   joint_train += train_data[i]
   joint_dev += dev_data[i]
   if args.diff_class:
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
+    label_size = vocabulary[i].get_vocab_size('labels')
+    label_indexes = {}
+    for si in range(label_size):
+      label_indexes[si] = vocabulary[i].get_token_from_index(si, 'labels')
+    labels_mapping[i] = label_indexes
+print("Labels mapping :  ", labels_mapping)
 
 
 train_code=""
@@ -151,7 +158,7 @@ run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(a
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
-vocab.print_statistics()
+#vocab.print_statistics()
 
 
 token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
@@ -210,7 +217,7 @@ else:
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
-save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code)
+save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])

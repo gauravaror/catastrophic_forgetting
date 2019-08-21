@@ -17,18 +17,18 @@ def gen_plot(plt):
     image = ToTensor()(image).unsqueeze(0)
     return image
 
-def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram):
+def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram, labels_map):
   tnse_embedding = TSNE(n_components=2, perplexity=30.0).fit_transform(data_view_tsne)
+  index_color = {0: 'bo', 1: 'go', 2: 'ro', 3: 'co', 4: 'mo', 5: 'yo'}
+  legend_tracker = {0: 'bo', 1: 'go', 2: 'ro', 3: 'co', 4: 'mo', 5: 'yo'}
+  task_label = labels_map[evaluate]
   for i in range(0, len(tnse_embedding)):
-    if labels_orig[i] == 1:
-      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"ro")
-    elif labels_orig[i] == 2:
-      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"go")
-    elif labels_orig[i] == 3:
-      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"yo")
+    if labels_orig[i] in legend_tracker:
+      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]], label=task_label[labels_orig[i]])
+      legend_tracker.pop(labels_orig[i])
     else:
-      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1],"bo")
-  #plt.savefig("embedding_plot_"+ "_layer_" + str(getlayer)+ "_train_"+ train + "_evaluate_" + evaluate + '_gram_' + str(gram) + ".png")
+      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]])
+  plt.legend()
   return gen_plot(plt)
 
 def get_catastrophic_metric(tasks, metrics):
