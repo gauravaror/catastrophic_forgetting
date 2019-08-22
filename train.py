@@ -30,6 +30,7 @@ from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_lo
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
 from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
+from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
 from models.CoLA import CoLADatasetReader
 import argparse
@@ -45,6 +46,7 @@ parser.add_argument('--task', action='append', help="Task to be added to model, 
 parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--few_shot', action='store_true', help="Train task on few shot learning before evaluating.")
+parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
@@ -184,6 +186,9 @@ if args.cnn:
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
   model = MainClassifier(word_embeddings, cnn, vocab)
+  if args.mean_classifier:
+    print("We are on journey to use the mean classifier now.")
+    model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
   lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
