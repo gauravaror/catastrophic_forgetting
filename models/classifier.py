@@ -115,7 +115,7 @@ class MainClassifier(Model):
     self.activations = activations
     self.labels = label
     tag_logits = hidden2tag(encoder_out)
-    output = {'logits': tag_logits }
+    output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
       _, preds = tag_logits.max(dim=1)
       #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))

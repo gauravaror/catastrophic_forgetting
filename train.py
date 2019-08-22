@@ -327,6 +327,9 @@ else:
           iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
+      if args.mean_classifier:
+        model.get_mean_prune_sampler()
+        model.evaluate_using_mean = True
       print("Now evaluating ", j)
       metric = evaluate(model=model,
 	 instances=dev_data[j],
@@ -334,6 +337,8 @@ else:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
+      if args.mean_classifier:
+        model.evaluate_using_mean = False
       standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
       if j not in overall_metrics:
         overall_metrics[j] = {}
