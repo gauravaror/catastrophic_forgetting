@@ -328,6 +328,13 @@ else:
           iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
       if args.mean_classifier:
+        model.adding_mean_representation = True
+        metric = evaluate(model=model,
+	                   instances=train_data[j],
+	                   data_iterator=iterator1,
+	                   cuda_device=devicea,
+	                   batch_weight_key=None)
+        model.adding_mean_represenation = False
         model.get_mean_prune_sampler()
         model.evaluate_using_mean = True
       print("Now evaluating ", j)

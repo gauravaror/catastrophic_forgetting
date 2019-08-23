@@ -36,13 +36,14 @@ class MeanClassifier(MainClassifier):
     self.encoder_representation = defaultdict(None)
     self.mean_representation = defaultdict(None)
     self.evaluate_using_mean = False
+    self.adding_mean_representation = False
 
   def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
     if not (self.current_task in self.examplers):
       self.examplers[self.current_task] = defaultdict(list)
       self.encoder_representation[self.current_task] = defaultdict(list)
     output = super().forward(tokens, label)
-    if self.training:
+    if self.training or self.adding_mean_representation:
       for i in range(label.shape[0]):
         self.examplers[self.current_task][label[i].item()].append(tokens['tokens'][i])
         self.encoder_representation[self.current_task][label[i].item()].append(output['encoder_output'][i])
@@ -56,7 +57,6 @@ class MeanClassifier(MainClassifier):
         current_one = trch_distance.argmax()
         this_label = list(self.mean_representation[self.current_task].keys())[current_one]
         y_onehot = torch.FloatTensor(1, len(list(self.mean_representation[self.current_task].keys())))
-        
 
         # In your for loop
         y_onehot.zero_()
