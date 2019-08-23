@@ -64,25 +64,19 @@ class MeanClassifier(MainClassifier):
 
         label_list.append(y_onehot)
       labels_mean_class = torch.cat(label_list)
-      print("Classification labels are ", labels_mean_class.shape, output['logits'].shape)  
       output['logits'] = labels_mean_class
     return output
 
   def get_mean_prune_sampler(self):
-    #print("Examplers are : ", self.examplers)
-    #print("Encoder representation is : ", self.encoder_representation)
     for task in self.encoder_representation.keys():
       labels = self.encoder_representation[task]
       if not (task in self.mean_representation):
         self.mean_representation[task] = defaultdict(torch.Tensor)
       for key in labels.keys():
-        #print("Currently processing labels", key)
         encoder_representation = labels[key]
         mixed_representation = torch.stack(encoder_representation)
         mean_current = torch.mean(mixed_representation, 0)
-        #print("Mixed representation ",  task, key, mixed_representation.shape, mean_current.shape, mean_current)
         self.mean_representation[task][key] = mean_current
-    print("MEAN REPRESENTATRION", self.mean_representation)
 
 
 
