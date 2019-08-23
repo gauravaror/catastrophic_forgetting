@@ -18,6 +18,7 @@ def gen_plot(plt):
     return image
 
 def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram, labels_map):
+  plt.clf()
   tnse_embedding = TSNE(n_components=2, perplexity=30.0).fit_transform(data_view_tsne)
   index_color = {0: 'bo', 1: 'go', 2: 'ro', 3: 'co', 4: 'mo', 5: 'yo'}
   legend_tracker = {0: 'bo', 1: 'go', 2: 'ro', 3: 'co', 4: 'mo', 5: 'yo'}
