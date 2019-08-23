@@ -32,6 +32,7 @@ from allennlp.common.params import Params
 from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
 from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
+from models.subjectivity import SubjectivityDatasetReader
 from models.CoLA import CoLADatasetReader
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
@@ -86,6 +87,7 @@ print("Training on these tasks", args.task,
 reader_senti = StanfordSentimentTreeBankDatasetReader1()
 reader_cola = CoLADatasetReader()
 reader_trec = TrecDatasetReader()
+reader_subj = SubjectivityDatasetReader()
 
 train_data = {}
 dev_data = {}
@@ -104,9 +106,9 @@ train_data["trec"] = reader_trec.read('data/TREC/train.txt')
 dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
 few_data["trec"] = reader_trec.read('data/TREC/few.txt')
 
-train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
-dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
-few_data["subjectivity"] = reader_trec.read('data/Subjectivity/few.txt')
+train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
+dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
+few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
 
 tasks = list(args.task)
 
