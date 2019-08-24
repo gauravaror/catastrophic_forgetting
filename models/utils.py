@@ -43,17 +43,21 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
     for i in range(starting_labels, starting_training_encoder):
       axes[len(mean_keys)].plot(tnse_embedding[i][0], tnse_embedding[i][1], mean_color[mean_keys[i - len(data_view_tsne)]])
   else:
-    fig, axes = plt.subplots(len(set(labels_orig)),1)
+    print("Printing labels for ", len(set(labels_orig)))
+    fig, axes = plt.subplots(len(set(labels_orig)),1, sharex='row')
 
   task_label = labels_map[evaluate]
   for i in range(0, len(data_view_tsne)):
     if labels_orig[i] in legend_tracker:
       axes[labels_orig[i]].plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]], label=task_label[labels_orig[i]])
+      axes[labels_orig[i]].legend(loc='upper right')
       legend_tracker.pop(labels_orig[i])
     else:
       axes[labels_orig[i]].plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]])
   plt.legend()
-  return gen_plot(plt)
+  image_plot = gen_plot(plt)
+  plt.close('all')
+  return image_plot
 
 def get_catastrophic_metric(tasks, metrics):
      forgetting_metrics = Counter()
