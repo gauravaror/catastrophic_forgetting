@@ -30,7 +30,9 @@ from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_lo
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
 from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
+from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
+from models.subjectivity import SubjectivityDatasetReader
 from models.CoLA import CoLADatasetReader
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
@@ -45,6 +47,7 @@ parser.add_argument('--task', action='append', help="Task to be added to model, 
 parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--few_shot', action='store_true', help="Train task on few shot learning before evaluating.")
+parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
@@ -84,6 +87,7 @@ print("Training on these tasks", args.task,
 reader_senti = StanfordSentimentTreeBankDatasetReader1()
 reader_cola = CoLADatasetReader()
 reader_trec = TrecDatasetReader()
+reader_subj = SubjectivityDatasetReader()
 
 train_data = {}
 dev_data = {}
@@ -102,9 +106,9 @@ train_data["trec"] = reader_trec.read('data/TREC/train.txt')
 dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
 few_data["trec"] = reader_trec.read('data/TREC/few.txt')
 
-train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
-dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
-few_data["subjectivity"] = reader_trec.read('data/Subjectivity/few.txt')
+train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
+dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
+few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
 
 tasks = list(args.task)
 
@@ -184,6 +188,9 @@ if args.cnn:
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
   model = MainClassifier(word_embeddings, cnn, vocab)
+  if args.mean_classifier:
+    print("We are on journey to use the mean classifier now.")
+    model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
   lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
@@ -217,7 +224,7 @@ else:
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
-save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping)
+save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -322,6 +329,16 @@ else:
           iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
+      if args.mean_classifier:
+        model.adding_mean_representation = True
+        metric = evaluate(model=model,
+	                   instances=few_data[j],
+	                   data_iterator=iterator1,
+	                   cuda_device=devicea,
+	                   batch_weight_key=None)
+        model.adding_mean_representation = False
+        model.get_mean_prune_sampler()
+        model.evaluate_using_mean = True
       print("Now evaluating ", j)
       metric = evaluate(model=model,
 	 instances=dev_data[j],
@@ -329,6 +346,8 @@ else:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
+      if args.mean_classifier:
+        model.evaluate_using_mean = False
       standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
       if j not in overall_metrics:
         overall_metrics[j] = {}
