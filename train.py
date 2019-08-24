@@ -224,7 +224,7 @@ else:
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
-save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping)
+save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -332,11 +332,11 @@ else:
       if args.mean_classifier:
         model.adding_mean_representation = True
         metric = evaluate(model=model,
-	                   instances=train_data[j],
+	                   instances=few_data[j],
 	                   data_iterator=iterator1,
 	                   cuda_device=devicea,
 	                   batch_weight_key=None)
-        model.adding_mean_represenation = False
+        model.adding_mean_representation = False
         model.get_mean_prune_sampler()
         model.evaluate_using_mean = True
       print("Now evaluating ", j)

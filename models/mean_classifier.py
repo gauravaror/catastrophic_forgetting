@@ -34,6 +34,7 @@ class MeanClassifier(MainClassifier):
     super().__init__(word_embeddings, encoder, vocab)
     self.examplers = defaultdict(None)
     self.encoder_representation = defaultdict(None)
+    self.encoder_output = []
     self.mean_representation = defaultdict(None)
     self.evaluate_using_mean = False
     self.adding_mean_representation = False
@@ -43,7 +44,8 @@ class MeanClassifier(MainClassifier):
       self.examplers[self.current_task] = defaultdict(list)
       self.encoder_representation[self.current_task] = defaultdict(list)
     output = super().forward(tokens, label)
-    if self.training or self.adding_mean_representation:
+    if self.adding_mean_representation:
+      print("Adding to mean representation ", label.shape[0])
       for i in range(label.shape[0]):
         self.examplers[self.current_task][label[i].item()].append(tokens['tokens'][i])
         self.encoder_representation[self.current_task][label[i].item()].append(output['encoder_output'][i])
@@ -65,6 +67,7 @@ class MeanClassifier(MainClassifier):
         label_list.append(y_onehot)
       labels_mean_class = torch.cat(label_list)
       output['logits'] = labels_mean_class
+      self.encoder_output = output['encoder_output']
     return output
 
   def get_mean_prune_sampler(self):
@@ -78,5 +81,6 @@ class MeanClassifier(MainClassifier):
         mean_current = torch.mean(mixed_representation, 0)
         self.mean_representation[task][key] = mean_current
 
-
+  def get_mean_representation(self):
+    return self.mean_representation, self.encoder_output
 

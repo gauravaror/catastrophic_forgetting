@@ -13,7 +13,7 @@ import numpy as np
 
 class SaveWeights:
 
-  def __init__(self, encoder_, layer, hdim, code, labels_mapping):
+  def __init__(self, encoder_, layer, hdim, code, labels_mapping, mean):
     self.encoder_type = encoder_
     self.tryno=1
     self.activations={}
@@ -24,14 +24,23 @@ class SaveWeights:
     self.code=code
     self.labels_map = labels_mapping
 
+    # Stuff to make mean classifier show up on tsne plots
+    self.mean_classifier = mean
+    self.mean_representation = {}
+    self.encoder_representation = {}
+
   def add_activations(self, model, train, evaluated):
     if not train in self.activations:
       self.activations[train] = {}
       self.labels[train] = {}
+      self.mean_representation[train] = {}
+      self.encoder_representation[train] = {}
       if self.encoder_type == "cnn":
           self.weights[train] = self.get_cnn_weights(model)
       #self.activations[train]["trained_task"] = train
     self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
+    if self.mean_classifier:
+        self.mean_representation[train][evaluated], self.encoder_representation[train][evaluated] = model.get_mean_representation()
 
   def get_zero_weights(self, activations):
 
@@ -80,7 +89,12 @@ class SaveWeights:
 
               this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
               this_label = self.labels[task][evalua].cpu().numpy()
-              plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram, self.labels_map)
+              if self.mean_classifier:
+                this_mean = self.mean_representation[task][evalua][evalua]
+                this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
+                plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua, lay, gram, self.labels_map, this_mean)
+              else:
+                plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram, self.labels_map)
               label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
               trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 
@@ -121,7 +135,12 @@ class SaveWeights:
 
               this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
               this_label = self.labels[task][evalua].cpu().numpy()
-              plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram, self.labels_map)
+              if self.mean_classifier:
+                this_mean = self.mean_representation[task][evalua][evalua]
+                this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
+                plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua, lay, gram, self.labels_map, this_mean)
+              else:
+                plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram, self.labels_map)
               label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
               trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 

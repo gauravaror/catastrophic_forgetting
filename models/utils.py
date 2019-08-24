@@ -7,6 +7,8 @@ import tensorflow as tf
 import io
 import PIL.Image
 from torchvision.transforms import ToTensor
+import torch
+import numpy as np
 
 def gen_plot(plt):
     """Create a pyplot plot and save to buffer."""
@@ -17,18 +19,39 @@ def gen_plot(plt):
     image = ToTensor()(image).unsqueeze(0)
     return image
 
-def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram, labels_map):
+def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram, labels_map, mean = None):
   plt.clf()
-  tnse_embedding = TSNE(n_components=2, perplexity=30.0).fit_transform(data_view_tsne)
-  index_color = {0: 'bo', 1: 'go', 2: 'ro', 3: 'co', 4: 'mo', 5: 'yo'}
-  legend_tracker = {0: 'bo', 1: 'go', 2: 'ro', 3: 'co', 4: 'mo', 5: 'yo'}
+  tsne_model = TSNE(n_components=2, perplexity=30.0)
+  tnse_embedding = tsne_model.fit_transform(data_view_tsne)
+  index_color = {0: 'b.', 1: 'g.', 2: 'r.', 3: 'c.', 4: 'm.', 5: 'y.'}
+  legend_tracker = {0: 'b.', 1: 'g.', 2: 'r.', 3: 'c.', 4: 'm.', 5: 'y.'}
+  mean_color = {0: 'b^', 1: 'g^', 2: 'r^', 3: 'c^', 4: 'm^', 5: 'y^'}
+
+  if mean:
+    mean_keys = list(mean.keys())
+    mean_values = list(mean.values())
+
+    mean_val_tp = torch.stack(mean_values).cpu().numpy()
+
+    combined_tsne = np.append(data_view_tsne, mean_val_tp, axis=0)
+    tnse_embedding = tsne_model.fit_transform(combined_tsne)
+
+    # Boundaries of each of mean and actual data points.
+    starting_labels = len(data_view_tsne)
+    starting_training_encoder = starting_labels + len(mean_keys)
+    fig, axes = plt.subplots(1+len(mean_keys),1)
+    for i in range(starting_labels, starting_training_encoder):
+      axes[len(mean_keys)].plot(tnse_embedding[i][0], tnse_embedding[i][1], mean_color[mean_keys[i - len(data_view_tsne)]])
+  else:
+    fig, axes = plt.subplots(len(set(labels_orig)),1)
+
   task_label = labels_map[evaluate]
-  for i in range(0, len(tnse_embedding)):
+  for i in range(0, len(data_view_tsne)):
     if labels_orig[i] in legend_tracker:
-      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]], label=task_label[labels_orig[i]])
+      axes[labels_orig[i]].plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]], label=task_label[labels_orig[i]])
       legend_tracker.pop(labels_orig[i])
     else:
-      plt.plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]])
+      axes[labels_orig[i]].plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]])
   plt.legend()
   return gen_plot(plt)
 
