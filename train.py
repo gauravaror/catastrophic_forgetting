@@ -80,7 +80,7 @@ print("Training on these tasks", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
-      "\dropout", args.dropout,
+      "\ndropout", args.dropout,
       "\ne_dim", args.e_dim,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
@@ -384,7 +384,7 @@ print("Training on these tasks", args.task,
 print("Accuracy and Loss")
 header="Accuracy"
 for i in evaluate_tasks:
-  header = header + "\t" + i
+  header = header + "\t\t" + i
 insert_in_pandas_list=[]
 print(header)
 for d in train:
@@ -392,7 +392,7 @@ for d in train:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
   for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[d][k]["accuracy"])
+    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["accuracy"])
     insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
