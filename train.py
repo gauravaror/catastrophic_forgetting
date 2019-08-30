@@ -34,12 +34,14 @@ from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
 from models.subjectivity import SubjectivityDatasetReader
 from models.CoLA import CoLADatasetReader
+from models.ag import AGNewsDatasetReader
+import models.utils as utils
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
 
-majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358}
+majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358, 'ag': 0.25, 'sst_2c': 0.51}
 
-sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772}
+sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772, 'ag' : 0.955 , 'sst_2c': 0.968}
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
@@ -82,35 +84,15 @@ print("Training on these tasks", args.task,
       "\ne_dim", args.e_dim,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
-
-
-reader_senti = StanfordSentimentTreeBankDatasetReader1()
-reader_cola = CoLADatasetReader()
-reader_trec = TrecDatasetReader()
-reader_subj = SubjectivityDatasetReader()
+tasks = list(args.task)
 
 train_data = {}
 dev_data = {}
 few_data = {}
 vocabulary = {}
 
-train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
-dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
-few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
-
-train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
-dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
-few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
-
-train_data["trec"] = reader_trec.read('data/TREC/train.txt')
-dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
-few_data["trec"] = reader_trec.read('data/TREC/few.txt')
-
-train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
-dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
-few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
-
-tasks = list(args.task)
+for task in tasks:
+  utils.load_dataset(task, train_data, dev_data, few_data)
 
 if not args.train:
    print("Train option not provided,  defaulting to tasks")

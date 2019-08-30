@@ -74,7 +74,7 @@ class SaveWeights:
     return val
 
   def write_activations(self, overall_metrics, trainer, tasks):
-    lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527}
+    lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
     final_val=[]
     first_task=list(self.activations.keys())[0]
     for task in self.activations.keys():
@@ -84,6 +84,7 @@ class SaveWeights:
             try:
               # Extract Activations
               first_activation=self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
+              print("Activation Shape", self.activations[task][evalua][lay][gram].shape)
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
               cor1=svc.get_cca_similarity(first_activation,current_activation)
 
@@ -129,6 +130,7 @@ class SaveWeights:
             except Exception as e:
               print(e)
               val={}
+              print("Activation Shape", self.activations[task][evalua][lay][gram].shape)
               current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
 
               # Add images for activation TSNE.
