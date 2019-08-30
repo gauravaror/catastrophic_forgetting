@@ -392,16 +392,10 @@ for d in train:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
   for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
+    print_data = print_data + "\t" + str(overall_metrics[d][k]["accuracy"])
     insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
-'''
-joint_print_data = "Joint\t"
-#for o in tasks:
-#  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
-print(joint_print_data)
-'''
 print("\n\n")
 initial_path="dfs/Results" + args.run_name
 if not args.seq2vec:
@@ -411,23 +405,6 @@ if args.cnn:
 if args.gru:
   initial_path="dfs/Results_GRU_" + args.run_name
 
-header="Loss"
-for i in evaluate_tasks:
-  header = header + "\t" + i
-print(header)
-for d in train:
-  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'average'}
-  print_data=d
-  for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["average"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["average"]
-  insert_in_pandas_list.append(insert_pandas_dict)
-  print(print_data)
-'''
-joint_print_data = "Joint\t"
-for o in tasks:
-  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
-'''
 df=pd.DataFrame(insert_in_pandas_list)
 
 if args.few_shot:

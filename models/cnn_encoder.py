@@ -123,7 +123,7 @@ class CnnEncoder(Seq2VecEncoder):
         # Concatenating them gives us a tensor of shape `(batch_size, num_filters * num_conv_layers)`.
         maxpool_output = torch.cat(filter_outputs, dim=2) if len(filter_outputs) > 1 else filter_outputs[0]
 
-        print("MaxPool size",maxpool_output.size())
+        #print("MaxPool size",maxpool_output.size())
         for a in range(self._num_layers-1):
             #print("This layer number",a)
             filter_outputs = []
@@ -135,10 +135,9 @@ class CnnEncoder(Seq2VecEncoder):
                 filter_outputs.append(input_new)
             maxpool_output = torch.cat(filter_outputs, dim=2) if len(filter_outputs) > 1 else filter_outputs[0]
             activations.extend(gram_acti)
-            activations.append(gram_acti)
-            print("Layer", a ,maxpool_output.size())
-        print("Before max pool size", maxpool_output.size())
-        print("After max pool size", maxpool_output.max(dim=2)[0].size())
+            #print("Layer", a ,maxpool_output.size())
+        #print("Before max pool size", maxpool_output.size())
+        #print("After max pool size", maxpool_output.max(dim=2)[0].size())
 
         if self.projection_layer:
             result = self.projection_layer(maxpool_output)

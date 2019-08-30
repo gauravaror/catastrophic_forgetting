@@ -54,7 +54,7 @@ class SaveWeights:
     dead_neurons=np.count_nonzero(axisz_non)
     return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
       
-  def set_stat(self, task, evalua, lay, gram, metric, metric_value, trainer, val, tasks):
+  def set_stat(self, evalua, task, metric, metric_value, trainer, val, tasks):
     puttask = task
     timeset = (tasks.index(evalua) + 1)
     print("Adding training scalar: ", metric, " timeset ", timeset,
@@ -67,11 +67,19 @@ class SaveWeights:
         puttask=''
         timeset = (tasks.index(evalua) + 1)
 
-    trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(puttask)+'/'+str(lay)+'/'+str(gram),
+    trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(puttask)+'/',
             metric_value,
             timestep=timeset)
     val[metric] = metric_value
     return val
+
+  def get_arr_rep(self, data, task):
+    # This is used to find the test instances currently being processed.
+    test_instances = {'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
+    new_representation = torch.cat(data, dim=2)
+    samples, filters, gram = new_representation.shape
+    return new_representation.reshape(filters, samples*gram)
+#.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):
     lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
@@ -81,40 +89,47 @@ class SaveWeights:
       for evalua in self.activations[task].keys():
             try:
               # Extract Activations
-              first_activation=self.activations[first_task][evalua].reshape(lista[evalua],-1).numpy()
-              current_activation=self.activations[task][evalua].reshape(lista[evalua],-1).numpy()
-              print("Activation Shape", self.activations[task][evalua].shape)
-              cor1=svc.get_cca_similarity(first_activation,current_activation)
+              first_activation = self.get_arr_rep( self.activations[first_task][evalua], evalua)
+              current_activation = self.get_arr_rep( self.activations[task][evalua], evalua)
+              #cor1 = wcca.ComputeCCA(first_activation, current_activation)
+              corr = svc.get_cca_similarity(first_activation, current_activation)
+              cor1 = corr['mean'][0]
 
-              this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
               this_label = self.labels[task][evalua].cpu().numpy()
               if self.mean_classifier:
                 this_mean = self.mean_representation[task][evalua][evalua]
                 this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
                 plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua, lay, gram, self.labels_map, this_mean)
               else:
-                plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram, self.labels_map)
-              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
+                plot = utils.run_tsne_embeddings(current_activation, this_label, task, evalua, 0, 0, self.labels_map)
+              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
               trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 
               # Extract Weights
-              if len(self.weights) > 0:
-                first_weight=self.weights[first_task]
-                current_weight=self.weights[task]
+              if len(self.weights) > 0 and (task == evalua):
+                first_weight = torch.cat(self.weights[first_task], dim=1)
+                first_weight = first_weight.reshape(first_weight.shape[0], -1)
 
-                weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
+                current_weight = torch.cat(self.weights[task], dim=1)
+                current_weight = current_weight.reshape(current_weight.shape[0], -1)
+
+                weight_corr1 = wcca.ComputeCCA(first_weight, current_weight)
+                weight_corr_svc = svc.get_cca_similarity(first_weight, current_weight)
+                weight_corr = weight_corr_svc['mean'][0]
               else:
-                weight_corr='nan'
+                weight_corr = 'nan'
 
               val={}
-              dead,average_z,tot=self.get_zero_weights(current_activation)
-              val = self.set_stat(evalua, task,  'avg_zeros', average_z, trainer, val, tasks)
-              val = self.set_stat(evalua, task,  'avg_zeros_per', average_z/tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task,  'dead', dead, trainer, val, tasks)
-              val = self.set_stat(evalua, task,  'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(evalu, task,  'total', tot, trainer, val, tasks)
-              val = self.set_stat(evalu, task,  'corr', float(cor1['mean'][0]), trainer, val, tasks)
-              val = self.set_stat(evalu, task,  'weight_corr', float(weight_corr), trainer, val, tasks)
+              dead, average_z,tot = self.get_zero_weights(current_activation)
+              val = self.set_stat(evalua, task, 'avg_zeros', average_z, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'dead', dead, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'total', tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'corr', float(cor1), trainer, val, tasks)
+              if weight_corr != 'nan':
+                  val = self.set_stat(evalua, task, 'weight_corr_svcc', float(weight_corr), trainer, val, tasks)
+                  val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
               val['total'] = tot
               val['evaluate']=str(evalua)
               val['task']=str(task)
@@ -122,11 +137,10 @@ class SaveWeights:
               val['h_dim'] = self.hdim
               val['code'] = self.code
               val['accuracy'] = overall_metrics[evalua][task]['accuracy']
-              print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),str(cor1['mean'])))
+              final_val.append(val)
             except Exception as e:
-              print("task Failed SVC"))
+              print("task Failed SVC")
               print(e)
-            final_val.append(val)
     mydf=pd.DataFrame(final_val)
     filename="final_corr/%s_layer_%s_hdim_%s_code_%s.df"%(str(self.encoder_type),str(self.layer),str(self.hdim), str(self.code))
     mydf.to_pickle(filename)
@@ -150,22 +164,20 @@ class SaveWeights:
   def get_cnn_weights(self, model):
     cnn_encoder_layer1 = model.encoder._convolution_layers
     cnn_encoder_layer2 = model.encoder._convolution_layers2
-    cnn_array={ 0: []}
+    cnn_array= []
     for layer in cnn_encoder_layer1:
       this_wei = layer.weight
       this_wei=this_wei.to('cpu')
-      curr_array=this_wei.detach().data.numpy()
-      cnn_array[0].extend(curr_array)
+      curr_array=this_wei.detach()
+      cnn_array.append(curr_array)
       print(curr_array.shape)
       this_wei=this_wei.to('cuda')
     for i,layer in enumerate(cnn_encoder_layer2):
       for gram in layer:
         this_wei = gram.weight
         this_wei=this_wei.to('cpu')
-        curr_array=this_wei.detach().data.numpy()
-        if not ((i+1) in cnn_array):
-          cnn_array[(i+1)] = []
-        cnn_array[i+1].extend(curr_array)
+        curr_array=this_wei.detach()
+        cnn_array.append(curr_array)
         print(curr_array.shape)
         this_wei=this_wei.to('cuda')
     return cnn_array
