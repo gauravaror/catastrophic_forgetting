@@ -372,7 +372,7 @@ if not args.diff_class:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
 
-print("Training on these tasks", args.task, 
+print("Training Results are on these :", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
