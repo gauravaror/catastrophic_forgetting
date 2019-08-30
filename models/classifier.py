@@ -63,8 +63,8 @@ class MajorityClassifier(Model):
    print("Going foward , do we have labels", label)
    if label is not None:
      _, preds = logi.max(dim=1)
-     print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
-     self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     #print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
      self.accuracy(logi, label)
      output["loss"] = torch.tensor([0])
    return output
@@ -89,6 +89,7 @@ class MainClassifier(Model):
     self.loss_function = torch.nn.CrossEntropyLoss()
     self.average  = Average()
     self.activations = []
+    self.labels = []
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
     self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
@@ -112,11 +113,12 @@ class MainClassifier(Model):
         encoder_out = output
         activations = []
     self.activations = activations
+    self.labels = label
     tag_logits = hidden2tag(encoder_out)
-    output = {'logits': tag_logits }
+    output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
       _, preds = tag_logits.max(dim=1)
-      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
       #bad.register_hooks(tag_logits)
@@ -126,7 +128,7 @@ class MainClassifier(Model):
     return {"accuracy": self.accuracy.get_metric(reset), "average": self.average.get_metric(reset)}
 
   def get_activations(self) -> []:
-    return self.activations
+    return self.activations, self.labels
 
 
 @Model.register("seq2seq_classifier")
@@ -169,7 +171,7 @@ class Seq2SeqClassifier(Model):
 
     if label is not None:
       _, preds = tag_logits.max(dim=1)
-      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
 

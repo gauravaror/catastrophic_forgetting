@@ -1,4 +1,20 @@
 gj04	1		Our friends won't buy this analysis, let alone the next one we propose.
 gj04	1		One more pseudo generalization and I'm giving up.
+gj04	1		One more pseudo generalization or I'm giving up.
+gj04	1		The more we study verbs, the crazier they get.
+gj04	1		Day by day the facts are getting murkier.
+gj04	1		I'll fix you a drink.
+gj04	1		Fred watered the plants flat.
+gj04	1		Bill coughed his way out of the restaurant.
+gj04	1		We're dancing the night away.
 gj04	0	*	They drank the pub.
-cj99	0	*	Bill can well imagine the more he eats, the fatter getting.
+gj04	0	*	We yelled ourselves.
+gj04	0	*	We yelled Harry hoarse.
+gj04	0	*	The professor talked us.
+gj04	0	*	Harry coughed himself.
+gj04	0	*	Harry coughed us into a fit.
+gj04	0	*	They caused him to become angry by making him.
+gj04	0	*	They caused him to become president by making him.
+gj04	0	*	They made him to exhaustion.
+gj04	0	*	The car honked down the road.
+gj04	0	*	The dog barked out of the room.

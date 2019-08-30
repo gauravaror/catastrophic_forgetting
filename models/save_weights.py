@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import sys
 from models import get_cca as wcca
+from models import utils
 
 sys.path.append("..")
 from svcca import cca_core as svc
@@ -12,22 +13,34 @@ import numpy as np
 
 class SaveWeights:
 
-  def __init__(self, encoder_, layer, hdim, code):
+  def __init__(self, encoder_, layer, hdim, code, labels_mapping, mean):
     self.encoder_type = encoder_
     self.tryno=1
     self.activations={}
+    self.labels={}
     self.weights={}
     self.layer=layer
     self.hdim=hdim
     self.code=code
+    self.labels_map = labels_mapping
+
+    # Stuff to make mean classifier show up on tsne plots
+    self.mean_classifier = mean
+    self.mean_representation = {}
+    self.encoder_representation = {}
 
   def add_activations(self, model, train, evaluated):
     if not train in self.activations:
       self.activations[train] = {}
+      self.labels[train] = {}
+      self.mean_representation[train] = {}
+      self.encoder_representation[train] = {}
       if self.encoder_type == "cnn":
           self.weights[train] = self.get_cnn_weights(model)
       #self.activations[train]["trained_task"] = train
-    self.activations[train][evaluated] = model.get_activations()
+    self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
+    if self.mean_classifier:
+        self.mean_representation[train][evaluated], self.encoder_representation[train][evaluated] = model.get_mean_representation()
 
   def get_zero_weights(self, activations):
 
@@ -61,7 +74,7 @@ class SaveWeights:
     return val
 
   def write_activations(self, overall_metrics, trainer, tasks):
-    lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527}
+    lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
     final_val=[]
     first_task=list(self.activations.keys())[0]
     for task in self.activations.keys():
@@ -70,7 +83,19 @@ class SaveWeights:
               # Extract Activations
               first_activation=self.activations[first_task][evalua].reshape(lista[evalua],-1).numpy()
               current_activation=self.activations[task][evalua].reshape(lista[evalua],-1).numpy()
+              print("Activation Shape", self.activations[task][evalua].shape)
               cor1=svc.get_cca_similarity(first_activation,current_activation)
+
+              this_activation = self.activations[task][evalua][lay][gram].cpu().reshape(lista[evalua],-1).numpy()
+              this_label = self.labels[task][evalua].cpu().numpy()
+              if self.mean_classifier:
+                this_mean = self.mean_representation[task][evalua][evalua]
+                this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
+                plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua, lay, gram, self.labels_map, this_mean)
+              else:
+                plot = utils.run_tsne_embeddings(this_activation, this_label, task, evalua, lay, gram, self.labels_map)
+              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua + "/" + str(lay) + "/" + str(gram)
+              trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 
               # Extract Weights
               if len(self.weights) > 0:

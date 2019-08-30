@@ -30,14 +30,18 @@ from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_lo
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
 from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
+from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
+from models.subjectivity import SubjectivityDatasetReader
 from models.CoLA import CoLADatasetReader
+from models.ag import AGNewsDatasetReader
+import models.utils as utils
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
 
-majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358}
+majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358, 'ag': 0.25, 'sst_2c': 0.51}
 
-sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772}
+sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772, 'ag' : 0.955 , 'sst_2c': 0.968}
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
@@ -45,6 +49,7 @@ parser.add_argument('--task', action='append', help="Task to be added to model, 
 parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--few_shot', action='store_true', help="Train task on few shot learning before evaluating.")
+parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
@@ -53,6 +58,7 @@ parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs t
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--patience', type=int, default=10, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
+parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
 parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
@@ -61,6 +67,7 @@ parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
+parser.add_argument('--storage_prefix', type=str, default="./runs/", help="This is used to store the runs inside runs folder")
 
 args = parser.parse_args()
 
@@ -77,34 +84,15 @@ print("Training on these tasks", args.task,
       "\ne_dim", args.e_dim,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
-
-
-reader_senti = StanfordSentimentTreeBankDatasetReader1()
-reader_cola = CoLADatasetReader()
-reader_trec = TrecDatasetReader()
+tasks = list(args.task)
 
 train_data = {}
 dev_data = {}
 few_data = {}
 vocabulary = {}
 
-train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
-dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
-few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
-
-train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
-dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
-few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
-
-train_data["trec"] = reader_trec.read('data/TREC/train.txt')
-dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
-few_data["trec"] = reader_trec.read('data/TREC/few.txt')
-
-train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
-dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
-few_data["subjectivity"] = reader_trec.read('data/Subjectivity/few.txt')
-
-tasks = list(args.task)
+for task in tasks:
+  utils.load_dataset(task, train_data, dev_data, few_data)
 
 if not args.train:
    print("Train option not provided,  defaulting to tasks")
@@ -122,12 +110,19 @@ print(type(train_data[tasks[0]]))
 joint_train = []
 joint_dev = []
 task_code=""
+labels_mapping={}
 for i in tasks:
   task_code+=str("_"+str(i))
   joint_train += train_data[i]
   joint_dev += dev_data[i]
   if args.diff_class:
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
+    label_size = vocabulary[i].get_vocab_size('labels')
+    label_indexes = {}
+    for si in range(label_size):
+      label_indexes[si] = vocabulary[i].get_token_from_index(si, 'labels')
+    labels_mapping[i] = label_indexes
+print("Labels mapping :  ", labels_mapping)
 
 
 train_code=""
@@ -140,12 +135,16 @@ for i in evaluate_tasks:
   evaluate_code += str("_"+str(i))
 
 
+if args.few_shot:
+  task_code += ('_train_' + train_code)
+  task_code += ('_evaluate_' + evaluate_code)
+
 ## Define Run Name and args to tensorboard for tracking.
-run_name="runs/"+args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
+run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
-vocab.print_statistics()
+#vocab.print_statistics()
 
 
 token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
@@ -171,6 +170,9 @@ if args.cnn:
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
   model = MainClassifier(word_embeddings, cnn, vocab)
+  if args.mean_classifier:
+    print("We are on journey to use the mean classifier now.")
+    model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
   lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
@@ -204,7 +206,7 @@ else:
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
-save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code)
+save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -217,7 +219,7 @@ if torch.cuda.is_available():
   move_optimizer_to_cuda(optimizer)
 
 torch.set_num_threads(4)
-iterator = BucketIterator(batch_size=32, sorting_keys=[("tokens", "num_tokens")])
+iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
 
 iterator.index_with(vocab)
 devicea = -1
@@ -251,17 +253,19 @@ else:
                   iterator=iterator,
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
-		  num_serialized_models_to_keep=0,
-		  serialization_dir=run_name,
-		  histogram_interval=100,
+                  num_serialized_models_to_keep=1,
+                  model_save_interval=1,
+                  serialization_dir=run_name,
+                  histogram_interval=100,
                   patience=args.patience,
                   num_epochs=args.epochs,
-		  cuda_device=devicea)
+                  cuda_device=devicea)
   for tid,i in enumerate(train,1):
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.diff_class:
       model.set_task(i)
+      trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]
       trainer._validation_data = dev_data[i]
@@ -278,24 +282,45 @@ else:
       sys.stdout.flush()
       if args.diff_class:
         model.set_task(j)
+        # This batch size of 10000 is hack to get activation while doing evaluation.
         iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
         if args.few_shot:
-          print("Now few_shot training ", j," \n")
+          met = evaluate(model=model,
+	                    instances=dev_data[j],
+	                    data_iterator=iterator1,
+	                    cuda_device=devicea,
+	                    batch_weight_key=None)
+          print("Now few_shot training ", j, "Metric before ", met," \n")
           for name, param in model.named_parameters():
             print("Named parameters for freezing ", name)
-            if name.startswith('encoder'):
+            if name.startswith('encoder') or name.startswith('word_embeddings'):
               print("Freezing param ", name)
-              param.require_grad = False
-          iterator1 = BucketIterator(batch_size=1, sorting_keys=[("tokens", "num_tokens")])
+              param.requires_grad = False
+          iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
+          trainer.model = model
           trainer.train_data = few_data[j]
           trainer._validation_data = few_data[j]
           trainer.iterator = iterator1
           trainer._metric_tracker.clear()
+          print("Doing few shot traing current things is ", trainer._metric_tracker._epochs_with_no_improvement, trainer._metric_tracker._epoch_number)
+          trainer._num_epochs = 10
           trainer.train()
+          # Back to hack of 10000 to get all the activations together as
           iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
+          trainer._num_epochs = args.epochs
+      if args.mean_classifier:
+        model.adding_mean_representation = True
+        metric = evaluate(model=model,
+	                   instances=few_data[j],
+	                   data_iterator=iterator1,
+	                   cuda_device=devicea,
+	                   batch_weight_key=None)
+        model.adding_mean_representation = False
+        model.get_mean_prune_sampler()
+        model.evaluate_using_mean = True
       print("Now evaluating ", j)
       metric = evaluate(model=model,
 	 instances=dev_data[j],
@@ -303,6 +328,8 @@ else:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
+      if args.mean_classifier:
+        model.evaluate_using_mean = False
       standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
       if j not in overall_metrics:
         overall_metrics[j] = {}
