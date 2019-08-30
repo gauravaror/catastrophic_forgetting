@@ -66,18 +66,16 @@ class SaveWeights:
     first_task=list(self.activations.keys())[0]
     for task in self.activations.keys():
       for evalua in self.activations[task].keys():
-        for lay in range(len(self.activations[task][evalua])):
-          for gram in range(len(self.activations[task][evalua][lay])):
             try:
               # Extract Activations
-              first_activation=self.activations[first_task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
-              current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
+              first_activation=self.activations[first_task][evalua].reshape(lista[evalua],-1).numpy()
+              current_activation=self.activations[task][evalua].reshape(lista[evalua],-1).numpy()
               cor1=svc.get_cca_similarity(first_activation,current_activation)
 
               # Extract Weights
               if len(self.weights) > 0:
-                first_weight=self.weights[first_task][lay][gram]
-                current_weight=self.weights[task][lay][gram]
+                first_weight=self.weights[first_task]
+                current_weight=self.weights[task]
 
                 weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
               else:
@@ -85,17 +83,15 @@ class SaveWeights:
 
               val={}
               dead,average_z,tot=self.get_zero_weights(current_activation)
-              val = self.set_stat(evalua, task, lay, gram, 'avg_zeros', average_z, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'dead', dead, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(evalu, task, lay, gram, 'total', tot, trainer, val, tasks)
-              val = self.set_stat(evalu, task, lay, gram, 'corr', float(cor1['mean'][0]), trainer, val, tasks)
-              val = self.set_stat(evalu, task, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
+              val = self.set_stat(evalua, task,  'avg_zeros', average_z, trainer, val, tasks)
+              val = self.set_stat(evalua, task,  'avg_zeros_per', average_z/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task,  'dead', dead, trainer, val, tasks)
+              val = self.set_stat(evalua, task,  'dead_per', dead/tot, trainer, val, tasks)
+              val = self.set_stat(evalu, task,  'total', tot, trainer, val, tasks)
+              val = self.set_stat(evalu, task,  'corr', float(cor1['mean'][0]), trainer, val, tasks)
+              val = self.set_stat(evalu, task,  'weight_corr', float(weight_corr), trainer, val, tasks)
               val['total'] = tot
               val['evaluate']=str(evalua)
-              val['gram']=int(gram)
-              val['lay']=int(lay)
               val['task']=str(task)
               val['layer'] = self.layer
               val['h_dim'] = self.hdim
@@ -103,41 +99,7 @@ class SaveWeights:
               val['accuracy'] = overall_metrics[evalua][task]['accuracy']
               print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),str(cor1['mean'])))
             except Exception as e:
-              val={}
-              current_activation=self.activations[task][evalua][lay][gram].reshape(lista[evalua],-1).numpy()
-              # Extract Weights
-              if len(self.weights) > 0:
-                first_weight=self.weights[first_task][lay][gram]
-                current_weight=self.weights[task][lay][gram]
-
-                weight_corr=wcca.get_correlation_for_two(first_weight, current_weight)
-              else:
-                weight_corr='nan'
-              timeset=(tasks.index(evalua) + 1)
-              dead,average_z,tot=self.get_zero_weights(current_activation)
-              val = self.set_stat(evalua, task, lay, gram, 'avg_zeros', average_z, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'dead', dead, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'total', tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'corr', -1, trainer, val, tasks)
-              val = self.set_stat(evalua, task, lay, gram, 'weight_corr', float(weight_corr), trainer, val, tasks)
-              val['evaluate']=str(evalua)
-              val['gram']=int(gram)
-              val['layer'] = self.layer
-              val['h_dim'] = self.hdim
-              val['code'] = self.code
-              val['lay']=int(lay)
-              val['task']=str(task)
-              val['corr']=None
-              val['weight_corr']=float(weight_corr)
-              val['avg_zeros'] = average_z
-              val['dead'] = dead
-              val['total'] = tot
-              val['avg_zeros_per'] = average_z/tot
-              val['dead_per'] = dead/tot
-              val['accuracy'] = overall_metrics[evalua][task]['accuracy']
-              print("task %s Layer %s, gram %s, corr %s"%(str(task),str(evalua),str(gram),"Failed SVC"))
+              print("task Failed SVC"))
               print(e)
             final_val.append(val)
     mydf=pd.DataFrame(final_val)
@@ -168,7 +130,7 @@ class SaveWeights:
       this_wei = layer.weight
       this_wei=this_wei.to('cpu')
       curr_array=this_wei.detach().data.numpy()
-      cnn_array[0].append(curr_array)
+      cnn_array[0].extend(curr_array)
       print(curr_array.shape)
       this_wei=this_wei.to('cuda')
     for i,layer in enumerate(cnn_encoder_layer2):
@@ -178,7 +140,7 @@ class SaveWeights:
         curr_array=this_wei.detach().data.numpy()
         if not ((i+1) in cnn_array):
           cnn_array[(i+1)] = []
-        cnn_array[i+1].append(curr_array)
+        cnn_array[i+1].extend(curr_array)
         print(curr_array.shape)
         this_wei=this_wei.to('cuda')
     return cnn_array
