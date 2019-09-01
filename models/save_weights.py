@@ -77,9 +77,14 @@ class SaveWeights:
   def get_arr_rep(self, data, task):
     # This is used to find the test instances currently being processed.
     test_instances = {'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
-    new_representation = torch.cat(data, dim=2)
-    samples, filters, gram = new_representation.shape
-    return new_representation.reshape(filters, samples*gram)
+    if self.encoder_type == 'cnn':
+      new_representation = torch.cat(data, dim=2)
+      samples, filters, gram = new_representation.shape
+      return new_representation.reshape(filters, samples*gram)
+    elif self.encoder_type == 'lstm':
+      print("Shape of tensors ", data.shape)
+      data = data.to('cpu').detach().numpy()
+      return data.reshape(data.shape[1], data.shape[0])
 #.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):

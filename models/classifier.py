@@ -111,7 +111,7 @@ class MainClassifier(Model):
         encoder_out, activations = output
     else:
         encoder_out = output
-        activations = []
+        activations = output
     self.activations = activations
     self.labels = label
     tag_logits = hidden2tag(encoder_out)
