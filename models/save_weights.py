@@ -36,8 +36,9 @@ class SaveWeights:
       self.mean_representation[train] = {}
       self.encoder_representation[train] = {}
       if self.encoder_type == "cnn":
-          self.weights[train] = self.get_cnn_weights(model)
-      #self.activations[train]["trained_task"] = train
+          self.weights[train] = self.get_weights(model.encoder)
+      if self.encoder_type == "lstm":
+          self.weights[train] = self.get_weight(model.encoder.module)
     self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
     if self.mean_classifier:
         self.mean_representation[train][evaluated], self.encoder_representation[train][evaluated] = model.get_mean_representation()
@@ -181,3 +182,12 @@ class SaveWeights:
         print(curr_array.shape)
         this_wei=this_wei.to('cuda')
     return cnn_array
+
+  def get_weights(self, model):
+      model_weights = []
+      for name, param in model.named_parameters():
+          if 'weight' in name:
+              ww = j.to('cpu').detach()
+              model_weights.append(ww)
+              print("Got model weights : ", name, " with  shape", ww.shape)
+      return model_weights
