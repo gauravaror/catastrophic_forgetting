@@ -143,7 +143,7 @@ class SaveWeights:
 
               if weight_corr != 'nan':
                   val = self.set_stat(evalua, task, 'weight_corr_svcc', float(weight_corr), trainer, val, tasks)
-                  #val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
+                  val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
               val['evaluate']=str(evalua)
               val['task']=str(task)
               val['layer'] = self.layer
