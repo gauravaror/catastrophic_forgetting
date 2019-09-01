@@ -276,7 +276,6 @@ else:
       trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), 1)
     if not args.majority:
       trainer.train()
-    #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
     for j in evaluate_tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
