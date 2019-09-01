@@ -38,7 +38,7 @@ class SaveWeights:
       if self.encoder_type == "cnn":
           self.weights[train] = self.get_weights(model.encoder)
       if self.encoder_type == "lstm":
-          self.weights[train] = self.get_weight(model.encoder.module)
+          self.weights[train] = self.get_weights(model.encoder.module)
     self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
     if self.mean_classifier:
         self.mean_representation[train][evaluated], self.encoder_representation[train][evaluated] = model.get_mean_representation()
