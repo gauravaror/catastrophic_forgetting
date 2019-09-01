@@ -38,7 +38,7 @@ class SaveWeights:
       if self.encoder_type == "cnn":
           self.weights[train] = self.get_weights(model.encoder)
       if self.encoder_type == "lstm":
-          self.weights[train] = self.get_weights(model.encoder.module)
+          self.weights[train] = self.get_weights(model.encoder._module)
     self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
     if self.mean_classifier:
         self.mean_representation[train][evaluated], self.encoder_representation[train][evaluated] = model.get_mean_representation()
@@ -89,22 +89,34 @@ class SaveWeights:
     for task in self.activations.keys():
       for evalua in self.activations[task].keys():
             try:
+              val={}
               # Extract Activations
-              first_activation = self.get_arr_rep( self.activations[first_task][evalua], evalua)
-              current_activation = self.get_arr_rep( self.activations[task][evalua], evalua)
-              #cor1 = wcca.ComputeCCA(first_activation, current_activation)
-              corr = svc.get_cca_similarity(first_activation, current_activation)
-              cor1 = corr['mean'][0]
+              if len(self.activations[first_task][evalua]) > 0:
+                  first_activation = self.get_arr_rep( self.activations[first_task][evalua], evalua)
+                  current_activation = self.get_arr_rep( self.activations[task][evalua], evalua)
+                  #cor1 = wcca.ComputeCCA(first_activation, current_activation)
+                  corr = svc.get_cca_similarity(first_activation, current_activation)
+                  cor1 = corr['mean'][0]
 
-              this_label = self.labels[task][evalua].cpu().numpy()
-              if self.mean_classifier:
-                this_mean = self.mean_representation[task][evalua][evalua]
-                this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
-                plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua, lay, gram, self.labels_map, this_mean)
-              else:
-                plot = utils.run_tsne_embeddings(current_activation, this_label, task, evalua, 0, 0, self.labels_map)
-              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
-              trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+                  this_label = self.labels[task][evalua].cpu().numpy()
+                  if self.mean_classifier:
+                      this_mean = self.mean_representation[task][evalua][evalua]
+                      this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
+                      plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua,
+                                                       lay, gram, self.labels_map, this_mean)
+                  else:
+                      plot = utils.run_tsne_embeddings(current_activation, this_label, task,
+                                                       evalua, 0, 0, self.labels_map)
+                  label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
+                  trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+                  dead, average_z,tot = self.get_zero_weights(current_activation)
+                  #val = self.set_stat(evalua, task, 'avg_zeros', average_z, trainer, val, tasks)
+                  val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
+                  #val = self.set_stat(evalua, task, 'dead', dead, trainer, val, tasks)
+                  val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
+                  #val = self.set_stat(evalua, task, 'total', tot, trainer, val, tasks)
+                  val = self.set_stat(evalua, task, 'corr', float(cor1), trainer, val, tasks)
+                  val['total'] = tot
 
               # Extract Weights
               if len(self.weights) > 0 and (task == evalua):
@@ -113,6 +125,10 @@ class SaveWeights:
 
                 current_weight = torch.cat(self.weights[task], dim=1)
                 current_weight = current_weight.reshape(current_weight.shape[0], -1)
+                if self.encoder_type == 'lstm':
+                    if first_weight.shape[0] > first_weight.shape[1]:
+                        first_weight = first_weight.reshape(first_weight.shape[1], first_weight.shape[0])
+                        current_weight = current_weight.reshape(current_weight.shape[1], current_weight.shape[0])
 
                 weight_corr1 = wcca.ComputeCCA(first_weight, current_weight)
                 weight_corr_svc = svc.get_cca_similarity(first_weight, current_weight)
@@ -120,18 +136,9 @@ class SaveWeights:
               else:
                 weight_corr = 'nan'
 
-              val={}
-              dead, average_z,tot = self.get_zero_weights(current_activation)
-              #val = self.set_stat(evalua, task, 'avg_zeros', average_z, trainer, val, tasks)
-              val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
-              #val = self.set_stat(evalua, task, 'dead', dead, trainer, val, tasks)
-              val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
-              #val = self.set_stat(evalua, task, 'total', tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, 'corr', float(cor1), trainer, val, tasks)
               if weight_corr != 'nan':
                   val = self.set_stat(evalua, task, 'weight_corr_svcc', float(weight_corr), trainer, val, tasks)
                   #val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
-              val['total'] = tot
               val['evaluate']=str(evalua)
               val['task']=str(task)
               val['layer'] = self.layer
@@ -187,7 +194,7 @@ class SaveWeights:
       model_weights = []
       for name, param in model.named_parameters():
           if 'weight' in name:
-              ww = j.to('cpu').detach()
+              ww = param.to('cpu').detach()
               model_weights.append(ww)
               print("Got model weights : ", name, " with  shape", ww.shape)
       return model_weights
