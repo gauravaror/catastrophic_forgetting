@@ -55,15 +55,15 @@ class SaveWeights:
     return (len(axisz_non)-dead_neurons),(second_size-average_zero_neurons),second_size
       
   def set_stat(self, evalua, task, metric, metric_value, trainer, val, tasks):
-    puttask = task
-    timeset = (tasks.index(evalua) + 1)
+    puttask = evalua
+    timeset = (tasks.index(task) + 1)
     print("Adding training scalar: ", metric, " timeset ", timeset,
 	  ' evaluate ', evalua, ' task ', task,
           ' metric val ', metric_value)
     if (metric == 'total'):
         puttask=''
         timeset = (tasks.index(task) + 1)
-    elif metric == 'weight_corr':
+    elif metric == 'weight_corr' or metric == 'weight_corr_svcc':
         puttask=''
         timeset = (tasks.index(evalua) + 1)
 
@@ -121,15 +121,15 @@ class SaveWeights:
 
               val={}
               dead, average_z,tot = self.get_zero_weights(current_activation)
-              val = self.set_stat(evalua, task, 'avg_zeros', average_z, trainer, val, tasks)
+              #val = self.set_stat(evalua, task, 'avg_zeros', average_z, trainer, val, tasks)
               val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, 'dead', dead, trainer, val, tasks)
+              #val = self.set_stat(evalua, task, 'dead', dead, trainer, val, tasks)
               val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
-              val = self.set_stat(evalua, task, 'total', tot, trainer, val, tasks)
+              #val = self.set_stat(evalua, task, 'total', tot, trainer, val, tasks)
               val = self.set_stat(evalua, task, 'corr', float(cor1), trainer, val, tasks)
               if weight_corr != 'nan':
                   val = self.set_stat(evalua, task, 'weight_corr_svcc', float(weight_corr), trainer, val, tasks)
-                  val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
+                  #val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
               val['total'] = tot
               val['evaluate']=str(evalua)
               val['task']=str(task)
