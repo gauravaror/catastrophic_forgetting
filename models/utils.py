@@ -86,9 +86,6 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
       axes[len(mean_keys)].plot(tnse_embedding[i][0], tnse_embedding[i][1], mean_color[mean_keys[i - len(data_view_tsne)]])
   else:
     plot_dim = len(set(labels_orig))
-    if plot_dim == 1:
-       print("Only one label " , labels_orig, train, evaluate)
-       plot_dim = 2
     print("Printing labels for ", plot_dim)
     fig, axes = plt.subplots(plot_dim,1, sharex='row')
 

@@ -64,9 +64,6 @@ class SaveWeights:
     if (metric == 'total'):
         puttask=''
         timeset = (tasks.index(task) + 1)
-    #elif metric == 'weight_corr' or metric == 'weight_corr_svcc':
-        #puttask=''
-        #timeset = (tasks.index(evalua) + 1)
 
     trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(puttask)+'/',
             metric_value,
