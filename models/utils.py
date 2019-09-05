@@ -104,29 +104,29 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
 def get_catastrophic_metric(tasks, metrics):
      forgetting_metrics = Counter()
      count_task = Counter()
-     forgetting={'total': 0}
+     forgetting={'total': 0, '1_step': 0}
+     last_task = tasks[len(tasks)-1]
+
      for i,task in enumerate(tasks):
-         for j in range(i):
-             print("Calculating backward for ",tasks[i] ,
-                   " taking calculation at tasks", tasks[j])
-             step = i-j
-             current_forgetting = (metrics[tasks[j]][tasks[j]] - metrics[tasks[i]][tasks[j]])
-             if step > 0:
-               forgetting_metrics[str(step) + "_step"] += current_forgetting
-               count_task[str(step) + "_step"] += 1
-             forgetting_metrics[tasks[j]] += current_forgetting
-             count_task[tasks[j]] += 1
-     for metric in forgetting_metrics:
-         if metric in tasks:
-           print("Calculating forgetting for", forgetting_metrics[task], count_task[task])
-           forgetting[metric] = forgetting_metrics[metric] / count_task[metric]
-           forgetting['total'] += forgetting[metric]
-         else:
-           forgetting[metric] = forgetting_metrics[metric] / count_task[metric]
+        # Calculate forgetting between first trained and last trained task
+        current_forgetting = (metrics[tasks[i]][tasks[i]] - metrics[tasks[i]][last_task])
+        # Normalize it by it's value.
+        current_forgetting = current_forgetting/metrics[tasks[i]][tasks[i]]
+        #print(f'Got forgetting for task {task} :  {current_forgetting}')
+        # This finds number of tasks trained after current task.
+        # This is to find expected loss per trained class.
+        if current_forgetting == 0:
+            continue
+        number_training_steps = (len(tasks) - i - 1)
+        forgetting_metrics["1_step"] += (current_forgetting / number_training_steps)
+        forgetting_metrics["total"] += current_forgetting
+        forgetting_metrics[tasks[i]] = current_forgetting
      
      # Calculate total forgetting of all the
      length_tasks = len(tasks) - 1
      if length_tasks > 1:
-         forgetting['total'] = (forgetting['total']/(len(tasks) - 1))
+         # This is subtracted by 1 as last task never sees any forgetting.
+         forgetting_metrics['total'] = forgetting_metrics['total']
+         forgetting_metrics['1_step'] = (forgetting_metrics['1_step']/(len(tasks) - 1))
 
-     return forgetting
+     return forgetting_metrics
