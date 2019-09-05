@@ -91,37 +91,37 @@ class SaveWeights:
     lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
     final_val=[]
     first_task=list(self.activations.keys())[0]
+    allowed_tasks = []
     for task in self.activations.keys():
+      allowed_tasks.append(task)
       for evalua in self.activations[task].keys():
+            if not evalua in allowed_tasks:
+                continue
             try:
               val={}
-              # Extract Activations
-              if len(self.activations[first_task][evalua]) > 0:
-                  first_activation = self.get_arr_rep( self.activations[first_task][evalua], evalua)
-                  current_activation = self.get_arr_rep( self.activations[task][evalua], evalua)
-                  #cor1 = wcca.ComputeCCA(first_activation, current_activation)
-                  corr = svc.get_cca_similarity(first_activation, current_activation)
-                  cor1 = corr['mean'][0]
+              # Extract Activations and get correlation.
+              # Array representation to get activations in CNN: Filtersxsamples.
+              first_activation = self.get_arr_rep(self.activations[evalua][evalua], evalua)
+              current_activation = self.get_arr_rep(self.activations[task][evalua], evalua)
+              corr = svc.get_cca_similarity(first_activation, current_activation)
+              cor1 = corr['mean'][0]
 
-                  this_label = self.labels[task][evalua].cpu().numpy()
-                  if self.mean_classifier:
+              this_label = self.labels[task][evalua].cpu().numpy()
+              if self.mean_classifier:
                       this_mean = self.mean_representation[task][evalua][evalua]
                       this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
                       plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua,
                                                        lay, gram, self.labels_map, this_mean)
-                  else:
+              else:
                       plot = utils.run_tsne_embeddings(current_activation, this_label, task,
                                                        evalua, 0, 0, self.labels_map)
-                  label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
-                  trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
-                  dead, average_z,tot = self.get_zero_weights(current_activation)
-                  #val = self.set_stat(evalua, task, 'avg_zeros', average_z, trainer, val, tasks)
-                  val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
-                  #val = self.set_stat(evalua, task, 'dead', dead, trainer, val, tasks)
-                  val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
-                  #val = self.set_stat(evalua, task, 'total', tot, trainer, val, tasks)
-                  val = self.set_stat(evalua, task, 'corr', float(cor1), trainer, val, tasks)
-                  val['total'] = tot
+              label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
+              trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+              dead, average_z,tot = self.get_zero_weights(current_activation)
+              val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
+              val = self.set_stat(evalua, task, 'corr', float(cor1), trainer, val, tasks)
+              val['total'] = tot
 
               # Extract Weights
               if len(self.weights) > 0 and (task == evalua):
