@@ -9,6 +9,48 @@ import PIL.Image
 from torchvision.transforms import ToTensor
 import torch
 import numpy as np
+from models.trec import TrecDatasetReader
+from models.subjectivity import SubjectivityDatasetReader
+from models.CoLA import CoLADatasetReader
+from models.ag import AGNewsDatasetReader
+from allennlp.data.dataset_readers import DatasetReader
+from models.sst import StanfordSentimentTreeBankDatasetReader1
+
+
+def load_dataset(code, train_data, dev_data, few_data):
+  if code == "sst_2c":
+    # Sentiment task 2 class
+    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class")
+    train_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/train.txt')
+    dev_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/dev.txt')
+    few_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/few.txt')
+  elif code == 'sst':
+    reader_senti = StanfordSentimentTreeBankDatasetReader1()
+    train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
+    dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
+    few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
+  elif code == 'cola':
+    reader_cola = CoLADatasetReader()
+    train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
+    dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
+    few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
+  elif code == 'trec':
+    reader_trec = TrecDatasetReader()
+    train_data["trec"] = reader_trec.read('data/TREC/train.txt')
+    dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
+    few_data["trec"] = reader_trec.read('data/TREC/few.txt')
+  elif code == 'subjectivity':
+    reader_subj = SubjectivityDatasetReader()
+    train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
+    dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
+    few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
+  elif code == 'ag':
+    reader_ag = AGNewsDatasetReader()
+    train_data["ag"] = reader_ag.read('data/ag/train.csv')
+    dev_data["ag"] = reader_ag.read('data/ag/val.csv')
+    few_data["ag"] = reader_ag.read('data/ag/val.csv')
+  else:
+    print("Unknown Task code provided")
 
 def gen_plot(plt):
     """Create a pyplot plot and save to buffer."""

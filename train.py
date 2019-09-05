@@ -34,12 +34,14 @@ from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
 from models.subjectivity import SubjectivityDatasetReader
 from models.CoLA import CoLADatasetReader
+from models.ag import AGNewsDatasetReader
+import models.utils as utils
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
 
-majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358}
+majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358, 'ag': 0.25, 'sst_2c': 0.51}
 
-sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772}
+sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772, 'ag' : 0.955 , 'sst_2c': 0.968}
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
@@ -78,39 +80,19 @@ print("Training on these tasks", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
-      "\dropout", args.dropout,
+      "\ndropout", args.dropout,
       "\ne_dim", args.e_dim,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
-
-
-reader_senti = StanfordSentimentTreeBankDatasetReader1()
-reader_cola = CoLADatasetReader()
-reader_trec = TrecDatasetReader()
-reader_subj = SubjectivityDatasetReader()
+tasks = list(args.task)
 
 train_data = {}
 dev_data = {}
 few_data = {}
 vocabulary = {}
 
-train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
-dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
-few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
-
-train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
-dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
-few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
-
-train_data["trec"] = reader_trec.read('data/TREC/train.txt')
-dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
-few_data["trec"] = reader_trec.read('data/TREC/few.txt')
-
-train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
-dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
-few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
-
-tasks = list(args.task)
+for task in tasks:
+  utils.load_dataset(task, train_data, dev_data, few_data)
 
 if not args.train:
    print("Train option not provided,  defaulting to tasks")
@@ -294,7 +276,6 @@ else:
       trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), 1)
     if not args.majority:
       trainer.train()
-    #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
     for j in evaluate_tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
@@ -390,7 +371,7 @@ if not args.diff_class:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
 
-print("Training on these tasks", args.task, 
+print("Training Results are on these :", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
@@ -402,7 +383,7 @@ print("Training on these tasks", args.task,
 print("Accuracy and Loss")
 header="Accuracy"
 for i in evaluate_tasks:
-  header = header + "\t" + i
+  header = header + "\t\t" + i
 insert_in_pandas_list=[]
 print(header)
 for d in train:
@@ -410,16 +391,10 @@ for d in train:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
   for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
+    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["accuracy"])
     insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
-'''
-joint_print_data = "Joint\t"
-#for o in tasks:
-#  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
-print(joint_print_data)
-'''
 print("\n\n")
 initial_path="dfs/Results" + args.run_name
 if not args.seq2vec:
@@ -429,23 +404,6 @@ if args.cnn:
 if args.gru:
   initial_path="dfs/Results_GRU_" + args.run_name
 
-header="Loss"
-for i in evaluate_tasks:
-  header = header + "\t" + i
-print(header)
-for d in train:
-  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'average'}
-  print_data=d
-  for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["average"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["average"]
-  insert_in_pandas_list.append(insert_pandas_dict)
-  print(print_data)
-'''
-joint_print_data = "Joint\t"
-for o in tasks:
-  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
-'''
 df=pd.DataFrame(insert_in_pandas_list)
 
 if args.few_shot:
