@@ -326,6 +326,13 @@ else:
 	 data_iterator=iterator1,
 	 cuda_device=devicea,
 	 batch_weight_key=None)
+
+      # Take first 500 instances for evaluating activations.
+      evaluate(model=model,
+	 instances=dev_data[j][:500],
+	 data_iterator=iterator1,
+	 cuda_device=devicea,
+	 batch_weight_key=None)
       save_weight.add_activations(model,i,j)
       if args.mean_classifier:
         model.evaluate_using_mean = False

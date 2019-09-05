@@ -85,8 +85,12 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
     for i in range(starting_labels, starting_training_encoder):
       axes[len(mean_keys)].plot(tnse_embedding[i][0], tnse_embedding[i][1], mean_color[mean_keys[i - len(data_view_tsne)]])
   else:
-    print("Printing labels for ", len(set(labels_orig)))
-    fig, axes = plt.subplots(len(set(labels_orig)),1, sharex='row')
+    plot_dim = len(set(labels_orig))
+    if plot_dim == 1:
+       print("Only one label " , labels_orig, train, evaluate)
+       plot_dim = 2
+    print("Printing labels for ", plot_dim)
+    fig, axes = plt.subplots(plot_dim,1, sharex='row')
 
   task_label = labels_map[evaluate]
   for i in range(0, len(data_view_tsne)):
@@ -130,3 +134,8 @@ def get_catastrophic_metric(tasks, metrics):
          forgetting_metrics['1_step'] = (forgetting_metrics['1_step']/(len(tasks) - 1))
 
      return forgetting_metrics
+
+def torch_remove_zero(matrix):
+    mask = matrix < 0
+    matrix = matrix.masked_fill(mask, 0)
+    return matrix

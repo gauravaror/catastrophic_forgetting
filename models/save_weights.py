@@ -64,9 +64,9 @@ class SaveWeights:
     if (metric == 'total'):
         puttask=''
         timeset = (tasks.index(task) + 1)
-    elif metric == 'weight_corr' or metric == 'weight_corr_svcc':
-        puttask=''
-        timeset = (tasks.index(evalua) + 1)
+    #elif metric == 'weight_corr' or metric == 'weight_corr_svcc':
+        #puttask=''
+        #timeset = (tasks.index(evalua) + 1)
 
     trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(puttask)+'/',
             metric_value,
@@ -80,30 +80,41 @@ class SaveWeights:
     if self.encoder_type == 'cnn':
       new_representation = torch.cat(data, dim=2)
       samples, filters, gram = new_representation.shape
-      return new_representation.reshape(filters, samples*gram)
+      new_representation =  new_representation.reshape(filters, samples*gram)
+      new_representation = utils.torch_remove_zero(new_representation)
+      return new_representation
     elif self.encoder_type == 'lstm':
       print("Shape of tensors ", data.shape)
-      data = data.to('cpu').detach().numpy()
-      return data.reshape(data.shape[1], data.shape[0])
+      data = data.to('cpu').detach()
+      if data.shape[1] < data.shape[0]:
+          data = data.reshape(data.shape[1], data.shape[0])
+      data = utils.torch_remove_zero(data)
+      return data.numpy()
 #.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):
     lista={'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
     final_val=[]
-    first_task=list(self.activations.keys())[0]
     allowed_tasks = []
     for task in self.activations.keys():
       allowed_tasks.append(task)
       for evalua in self.activations[task].keys():
-            if not evalua in allowed_tasks:
+              if not evalua in allowed_tasks:
                 continue
-            try:
               val={}
               # Extract Activations and get correlation.
               # Array representation to get activations in CNN: Filtersxsamples.
+              # input must be number of neuronsby datapoints hence adjusting that for lstm.
+              # first dimension should be bigger than second. 
               first_activation = self.get_arr_rep(self.activations[evalua][evalua], evalua)
               current_activation = self.get_arr_rep(self.activations[task][evalua], evalua)
-              corr = svc.get_cca_similarity(first_activation, current_activation)
+              try:
+                  corr = svc.get_cca_similarity(first_activation, current_activation)
+              except Exception as e:
+                  print("task Failed SVC activation ", task, evalua)
+                  print(e)
+                  corr = {}
+                  corr['mean'] = (0,0)
               cor1 = corr['mean'][0]
 
               this_label = self.labels[task][evalua].cpu().numpy()
@@ -124,8 +135,8 @@ class SaveWeights:
               val['total'] = tot
 
               # Extract Weights
-              if len(self.weights) > 0 and (task == evalua):
-                first_weight = torch.cat(self.weights[first_task], dim=1)
+              if len(self.weights) > 0:
+                first_weight = torch.cat(self.weights[evalua], dim=1)
                 first_weight = first_weight.reshape(first_weight.shape[0], -1)
 
                 current_weight = torch.cat(self.weights[task], dim=1)
@@ -134,16 +145,20 @@ class SaveWeights:
                     if first_weight.shape[0] > first_weight.shape[1]:
                         first_weight = first_weight.reshape(first_weight.shape[1], first_weight.shape[0])
                         current_weight = current_weight.reshape(current_weight.shape[1], current_weight.shape[0])
-
-                weight_corr1 = wcca.ComputeCCA(first_weight, current_weight)
-                weight_corr_svc = svc.get_cca_similarity(first_weight, current_weight)
-                weight_corr = weight_corr_svc['mean'][0]
+                current_weight = utils.torch_remove_zero(current_weight)
+                first_weight = utils.torch_remove_zero(first_weight)
+                try:
+                    weight_corr_svc = svc.get_cca_similarity(first_weight, current_weight)
+                    weight_corr = weight_corr_svc['mean'][0]
+                except Exception as e:
+                    print("task Failed SVC weight ", task, evalua)
+                    print(e)
+                    weight_corr = 0
               else:
                 weight_corr = 'nan'
 
               if weight_corr != 'nan':
                   val = self.set_stat(evalua, task, 'weight_corr_svcc', float(weight_corr), trainer, val, tasks)
-                  val = self.set_stat(evalua, task, 'weight_corr', float(weight_corr1), trainer, val, tasks)
               val['evaluate']=str(evalua)
               val['task']=str(task)
               val['layer'] = self.layer
@@ -151,9 +166,6 @@ class SaveWeights:
               val['code'] = self.code
               val['accuracy'] = overall_metrics[evalua][task]['accuracy']
               final_val.append(val)
-            except Exception as e:
-              print("task Failed SVC")
-              print(e)
     mydf=pd.DataFrame(final_val)
     filename="final_corr/%s_layer_%s_hdim_%s_code_%s.df"%(str(self.encoder_type),str(self.layer),str(self.hdim), str(self.code))
     mydf.to_pickle(filename)
