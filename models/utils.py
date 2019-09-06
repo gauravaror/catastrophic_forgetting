@@ -8,6 +8,8 @@ import io
 import PIL.Image
 from torchvision.transforms import ToTensor
 import torch
+import torch.optim as optim
+from allennlp.training.util import move_optimizer_to_cuda, evaluate
 import numpy as np
 from models.trec import TrecDatasetReader
 from models.subjectivity import SubjectivityDatasetReader
@@ -16,6 +18,19 @@ from models.ag import AGNewsDatasetReader
 from allennlp.data.dataset_readers import DatasetReader
 from models.sst import StanfordSentimentTreeBankDatasetReader1
 
+
+def get_optimizer(opt, parameters, lr_, wdecay):
+    if opt == 'adam':
+        if wdecay:
+            print("Using Weight decay", wdecay)
+            myopt = optim.Adam(parameters, lr=lr_, betas=(0.9, 0.999), eps=1e-08, weight_decay=wdecay)
+        else:
+            myopt = optim.Adam(parameters, lr=lr_, betas=(0.9, 0.999), eps=1e-08)
+    else:
+        myopt =  optim.Adam(parameters, lr=lr_, betas=(0.9, 0.999), eps=1e-08)
+    if torch.cuda.is_available():
+        move_optimizer_to_cuda(myopt)
+    return myopt
 
 def load_dataset(code, train_data, dev_data, few_data):
   if code == "sst_2c":
@@ -132,7 +147,7 @@ def get_catastrophic_metric(tasks, metrics):
 
      return forgetting_metrics
 
-def torch_remove_zero(matrix):
+def torch_remove_neg(matrix):
     mask = matrix < 0
     matrix = matrix.masked_fill(mask, 0)
     return matrix

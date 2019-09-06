@@ -56,9 +56,16 @@ parser.add_argument('--cnn', action='store_true', help="Use CNN")
 parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
-parser.add_argument('--patience', type=int, default=10, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
 parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
+
+# Optimization Based Parameters
+parser.add_argument('--wdecay', type=float, help="L2 Norm to use")
+parser.add_argument('--lr', type=float, default=0.001, help="L2 Norm to use")
+parser.add_argument('--opt_alg', type=str, default="adam", help="Optimization algorithm to use")
+parser.add_argument('--patience', type=int, default=10, help="Number of layers")
+
+
 parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
@@ -213,10 +220,7 @@ for i in tasks:
 if torch.cuda.is_available():
   model.cuda(0)
 
-optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08)
-
-if torch.cuda.is_available():
-  move_optimizer_to_cuda(optimizer)
+optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.wdecay)
 
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])

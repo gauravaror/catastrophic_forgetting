@@ -78,15 +78,15 @@ class SaveWeights:
       new_representation = torch.cat(data, dim=2)
       samples, filters, gram = new_representation.shape
       new_representation =  new_representation.reshape(filters, samples*gram)
-      new_representation = utils.torch_remove_zero(new_representation)
+      new_representation = utils.torch_remove_neg(new_representation)
       return new_representation
     elif self.encoder_type == 'lstm':
       print("Shape of tensors ", data.shape)
       data = data.to('cpu').detach()
       if data.shape[1] < data.shape[0]:
           data = data.reshape(data.shape[1], data.shape[0])
-      data = utils.torch_remove_zero(data)
-      return data.numpy()
+      data = utils.torch_remove_neg(data)
+      return data
 #.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):
@@ -115,6 +115,12 @@ class SaveWeights:
               cor1 = corr['mean'][0]
 
               this_label = self.labels[task][evalua].cpu().numpy()
+              # Move back to the actual activations Shape i.e ExamplesXweights
+              # as we want that for plotting TSNE plot which exploits and maps it with
+              # Label on first dimension.
+              first_activation = first_activation.reshape(this_label.shape[0], -1)
+              current_activation = current_activation.reshape(this_label.shape[0], -1)
+
               if self.mean_classifier:
                       this_mean = self.mean_representation[task][evalua][evalua]
                       this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
@@ -125,6 +131,7 @@ class SaveWeights:
                                                        evalua, 0, 0, self.labels_map)
               label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
               trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+
               dead, average_z,tot = self.get_zero_weights(current_activation)
               val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
               val = self.set_stat(evalua, task, 'dead_per', dead/tot, trainer, val, tasks)
@@ -142,8 +149,8 @@ class SaveWeights:
                     if first_weight.shape[0] > first_weight.shape[1]:
                         first_weight = first_weight.reshape(first_weight.shape[1], first_weight.shape[0])
                         current_weight = current_weight.reshape(current_weight.shape[1], current_weight.shape[0])
-                current_weight = utils.torch_remove_zero(current_weight)
-                first_weight = utils.torch_remove_zero(first_weight)
+                current_weight = utils.torch_remove_neg(current_weight)
+                first_weight = utils.torch_remove_neg(first_weight)
                 try:
                     weight_corr_svc = svc.get_cca_similarity(first_weight, current_weight)
                     weight_corr = weight_corr_svc['mean'][0]
