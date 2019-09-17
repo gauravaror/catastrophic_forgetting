@@ -49,15 +49,16 @@ class CnnEncoder(Seq2VecEncoder):
                  num_layers: int,
                  ngram_filter_sizes: Tuple[int, ...] = (2, 3, 4, 5),  # pylint: disable=bad-whitespace
                  conv_layer_activation: Activation = None,
-                 output_dim: Optional[int] = None) -> None:
+                 output_dim: Optional[int] = None,
+                 pooling: str = 'max') -> None:
         super(CnnEncoder, self).__init__()
         self._embedding_dim = embedding_dim
+        self._pooling = pooling
         self._num_filters = num_filters
         self._num_layers = num_layers
         self._ngram_filter_sizes = ngram_filter_sizes
         self._activation = conv_layer_activation or Activation.by_name('relu')()
         self._output_dim = output_dim
-        self._pooling = torch.nn.MaxPool1d(kernel_size=2)
         self._convolution_layers = [Conv1d(in_channels=self._embedding_dim,
                                            out_channels=self._num_filters,
                                            kernel_size=ngram_size)
@@ -116,7 +117,7 @@ class CnnEncoder(Seq2VecEncoder):
             gram_acti.append(x.data.clone().cpu())
             #print("Size After Activation", x.size())
             filter_outputs.append(x)
-        activations.append(gram_acti)
+        activations.extend(gram_acti)
         #for f in filter_outputs:
         #  print(f.size())
         # Now we have a list of `num_conv_layers` tensors of shape `(batch_size, num_filters)`.
@@ -134,7 +135,7 @@ class CnnEncoder(Seq2VecEncoder):
                 gram_acti.append(input_new.data.clone().cpu())
                 filter_outputs.append(input_new)
             maxpool_output = torch.cat(filter_outputs, dim=2) if len(filter_outputs) > 1 else filter_outputs[0]
-            activations.append(gram_acti)
+            activations.extend(gram_acti)
             #print("Layer", a ,maxpool_output.size())
         #print("Before max pool size", maxpool_output.size())
         #print("After max pool size", maxpool_output.max(dim=2)[0].size())
@@ -142,6 +143,11 @@ class CnnEncoder(Seq2VecEncoder):
         if self.projection_layer:
             result = self.projection_layer(maxpool_output)
         else:
-            result = maxpool_output.max(dim=2)[0]
+            if self._pooling == 'max':
+                result = maxpool_output.max(dim=2)[0]
+            elif self._pooling == 'min':
+                result = maxpool_output.min(dim=2)[0]
+            elif self._pooling == 'avg':
+                result = maxpool_output.mean(dim=2)
         return result, activations
 

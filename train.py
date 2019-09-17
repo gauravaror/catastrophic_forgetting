@@ -30,14 +30,18 @@ from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_lo
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
 from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
+from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
+from models.subjectivity import SubjectivityDatasetReader
 from models.CoLA import CoLADatasetReader
+from models.ag import AGNewsDatasetReader
+import models.utils as utils
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
 
-majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358}
+majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358, 'ag': 0.25, 'sst_2c': 0.51}
 
-sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772}
+sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772, 'ag' : 0.955 , 'sst_2c': 0.968}
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
@@ -45,15 +49,23 @@ parser.add_argument('--task', action='append', help="Task to be added to model, 
 parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
 parser.add_argument('--few_shot', action='store_true', help="Train task on few shot learning before evaluating.")
+parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
 parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
-parser.add_argument('--patience', type=int, default=10, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
 parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
+
+# Optimization Based Parameters
+parser.add_argument('--wdecay', type=float, help="L2 Norm to use")
+parser.add_argument('--lr', type=float, default=0.001, help="L2 Norm to use")
+parser.add_argument('--opt_alg', type=str, default="adam", help="Optimization algorithm to use")
+parser.add_argument('--patience', type=int, default=10, help="Number of layers")
+
+
 parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
@@ -63,6 +75,11 @@ parser.add_argument('--majority', help="Use Sequence to sequence",action='store_
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
 parser.add_argument('--storage_prefix', type=str, default="./runs/", help="This is used to store the runs inside runs folder")
+
+
+
+parser.add_argument('--pooling', type=str, default="max", help="Selects the pooling operation for CNN, max pooling, min pooling, average pooling. max,min,avg")
+parser.add_argument('--no_save_weight', action='store_true', help="Disable saving of weights")
 
 args = parser.parse_args()
 
@@ -75,38 +92,19 @@ print("Training on these tasks", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
-      "\dropout", args.dropout,
+      "\ndropout", args.dropout,
       "\ne_dim", args.e_dim,
       "\nh_dim", args.h_dim,
       "\ndiff_class", args.diff_class)
-
-
-reader_senti = StanfordSentimentTreeBankDatasetReader1()
-reader_cola = CoLADatasetReader()
-reader_trec = TrecDatasetReader()
+tasks = list(args.task)
 
 train_data = {}
 dev_data = {}
 few_data = {}
 vocabulary = {}
 
-train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
-dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
-few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
-
-train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
-dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
-few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
-
-train_data["trec"] = reader_trec.read('data/TREC/train.txt')
-dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
-few_data["trec"] = reader_trec.read('data/TREC/few.txt')
-
-train_data["subjectivity"] = reader_trec.read('data/Subjectivity/train.txt')
-dev_data["subjectivity"] = reader_trec.read('data/Subjectivity/test.txt')
-few_data["subjectivity"] = reader_trec.read('data/Subjectivity/few.txt')
-
-tasks = list(args.task)
+for task in tasks:
+  utils.load_dataset(task, train_data, dev_data, few_data)
 
 if not args.train:
    print("Train option not provided,  defaulting to tasks")
@@ -124,12 +122,19 @@ print(type(train_data[tasks[0]]))
 joint_train = []
 joint_dev = []
 task_code=""
+labels_mapping={}
 for i in tasks:
   task_code+=str("_"+str(i))
   joint_train += train_data[i]
   joint_dev += dev_data[i]
   if args.diff_class:
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
+    label_size = vocabulary[i].get_vocab_size('labels')
+    label_indexes = {}
+    for si in range(label_size):
+      label_indexes[si] = vocabulary[i].get_token_from_index(si, 'labels')
+    labels_mapping[i] = label_indexes
+print("Labels mapping :  ", labels_mapping)
 
 
 train_code=""
@@ -151,7 +156,7 @@ run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(a
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
-vocab.print_statistics()
+#vocab.print_statistics()
 
 
 token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
@@ -169,7 +174,8 @@ if args.cnn:
   cnn = CnnEncoder(embedding_dim=args.e_dim,
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
-		   num_filters=args.h_dim)
+		   num_filters=args.h_dim,
+                   pooling=args.pooling)
   if args.pyramid:
       experiment="dpcnn"
       cnn = DeepPyramidCNN(embedding_dim=args.e_dim,
@@ -177,6 +183,9 @@ if args.cnn:
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
   model = MainClassifier(word_embeddings, cnn, vocab)
+  if args.mean_classifier:
+    print("We are on journey to use the mean classifier now.")
+    model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
   lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
@@ -210,17 +219,15 @@ else:
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
-save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code)
+if not args.no_save_weight:
+    save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
 if torch.cuda.is_available():
   model.cuda(0)
 
-optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08)
-
-if torch.cuda.is_available():
-  move_optimizer_to_cuda(optimizer)
+optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.wdecay)
 
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
@@ -280,7 +287,6 @@ else:
       trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), 1)
     if not args.majority:
       trainer.train()
-    #save_weight.write_weights_new(model, args.layers, args.h_dim, task_code, i, args.tryno)
     for j in evaluate_tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
@@ -315,13 +321,35 @@ else:
           iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
           iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
+      if args.mean_classifier:
+        model.adding_mean_representation = True
+        metric = evaluate(model=model,
+	                   instances=few_data[j],
+	                   data_iterator=iterator1,
+	                   cuda_device=devicea,
+	                   batch_weight_key=None)
+        model.adding_mean_representation = False
+        model.get_mean_prune_sampler()
+        model.evaluate_using_mean = True
       print("Now evaluating ", j)
       metric = evaluate(model=model,
 	 instances=dev_data[j],
 	 data_iterator=iterator1,
 	 cuda_device=devicea,
 	 batch_weight_key=None)
-      save_weight.add_activations(model,i,j)
+
+      # Take first 500 instances for evaluating activations.
+      evaluate(model=model,
+	 instances=dev_data[j][:500],
+	 data_iterator=iterator1,
+	 cuda_device=devicea,
+	 batch_weight_key=None)
+
+      if not args.no_save_weight:
+          save_weight.add_activations(model,i,j)
+
+      if args.mean_classifier:
+        model.evaluate_using_mean = False
       standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
       if j not in overall_metrics:
         overall_metrics[j] = {}
@@ -352,7 +380,9 @@ else:
       trainer._tensorboard.add_train_scalar("forgetting_metric/standard_" + task,
 					    c_standard_metric[task],
 					    timestep=tid)
-  save_weight.write_activations(overall_metrics, trainer, tasks)
+  if not args.no_save_weight:
+      save_weight.write_activations(overall_metrics, trainer, tasks)
+
   trainer._tensorboard._train_log.close()
 
 if not args.diff_class:
@@ -364,7 +394,7 @@ if not args.diff_class:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
 
-print("Training on these tasks", args.task, 
+print("Training Results are on these :", args.task,
       "\nJoint", args.joint,
       "\nepochs", args.epochs,
       "\nlayers", args.layers,
@@ -376,7 +406,7 @@ print("Training on these tasks", args.task,
 print("Accuracy and Loss")
 header="Accuracy"
 for i in evaluate_tasks:
-  header = header + "\t" + i
+  header = header + "\t\t" + i
 insert_in_pandas_list=[]
 print(header)
 for d in train:
@@ -384,16 +414,10 @@ for d in train:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
   for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["accuracy"])
+    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["accuracy"])
     insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
-'''
-joint_print_data = "Joint\t"
-#for o in tasks:
-#  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["accuracy"])
-print(joint_print_data)
-'''
 print("\n\n")
 initial_path="dfs/Results" + args.run_name
 if not args.seq2vec:
@@ -403,23 +427,6 @@ if args.cnn:
 if args.gru:
   initial_path="dfs/Results_GRU_" + args.run_name
 
-header="Loss"
-for i in evaluate_tasks:
-  header = header + "\t" + i
-print(header)
-for d in train:
-  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'average'}
-  print_data=d
-  for k in evaluate_tasks:
-    print_data = print_data + "\t" + str(overall_metrics[k][d]["average"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["average"]
-  insert_in_pandas_list.append(insert_pandas_dict)
-  print(print_data)
-'''
-joint_print_data = "Joint\t"
-for o in tasks:
-  joint_print_data = joint_print_data + "\t" + str(overall_metrics[o]["Joint"]["loss"])
-'''
 df=pd.DataFrame(insert_in_pandas_list)
 
 if args.few_shot:
