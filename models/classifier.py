@@ -149,6 +149,8 @@ class Seq2SeqClassifier(Model):
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
     self.average  = Average()
+    self.activations = []
+    self.labels = []
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
     self.classification_layers.append(torch.nn.Linear(in_features=self.hidden_dim, out_features=vocab.get_vocab_size('labels')))
@@ -168,6 +170,8 @@ class Seq2SeqClassifier(Model):
     encoder_out = self.encoder(embeddings, mask)
     tag_logits = self.hidden2tag(torch.nn.functional.adaptive_max_pool1d(encoder_out.permute(0,2,1), (1,)).view(-1, self.hidden_dim))
     output = {'logits': tag_logits }
+    self.activations = encoder_out
+    self.labels = label
 
     if label is not None:
       _, preds = tag_logits.max(dim=1)
@@ -179,3 +183,6 @@ class Seq2SeqClassifier(Model):
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
     return {"accuracy": self.accuracy.get_metric(reset), "average": self.average.get_metric(reset)}
+
+  def get_activations(self) -> []:
+    return self.activations, self.labels

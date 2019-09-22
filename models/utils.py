@@ -120,7 +120,7 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
 def get_catastrophic_metric(tasks, metrics):
      forgetting_metrics = Counter()
      count_task = Counter()
-     forgetting={'total': 0, '1_step': 0}
+     forgetting = {'total': 0, '1_step': 0}
      last_task = tasks[len(tasks)-1]
 
      for i,task in enumerate(tasks):
@@ -132,6 +132,7 @@ def get_catastrophic_metric(tasks, metrics):
         # This finds number of tasks trained after current task.
         # This is to find expected loss per trained class.
         if current_forgetting == 0:
+            forgetting_metrics[tasks[i]] = current_forgetting
             continue
         number_training_steps = (len(tasks) - i - 1)
         forgetting_metrics["1_step"] += (current_forgetting / number_training_steps)
