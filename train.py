@@ -277,9 +277,9 @@ else:
       trainer.iterator = iterator
       trainer._validation_iterator = iterator
       trainer._metric_tracker.clear()
-      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), 1)
     if not args.majority:
-      trainer.train()
+      metrics = trainer.train()
+      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), metrics['training_epochs'], timestep=tid)
     for j in evaluate_tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
