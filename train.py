@@ -76,6 +76,11 @@ parser.add_argument('--tryno', type=int, default=1, help="This is ith try add th
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
 parser.add_argument('--storage_prefix', type=str, default="./runs/", help="This is used to store the runs inside runs folder")
 
+
+
+parser.add_argument('--pooling', type=str, default="max", help="Selects the pooling operation for CNN, max pooling, min pooling, average pooling. max,min,avg")
+parser.add_argument('--no_save_weight', action='store_true', help="Disable saving of weights")
+
 args = parser.parse_args()
 
 
@@ -169,7 +174,8 @@ if args.cnn:
   cnn = CnnEncoder(embedding_dim=args.e_dim,
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
-		   num_filters=args.h_dim)
+		   num_filters=args.h_dim,
+                   pooling=args.pooling)
   if args.pyramid:
       experiment="dpcnn"
       cnn = DeepPyramidCNN(embedding_dim=args.e_dim,
@@ -213,7 +219,8 @@ else:
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
 
-save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
+if not args.no_save_weight:
+    save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -337,7 +344,10 @@ else:
 	 data_iterator=iterator1,
 	 cuda_device=devicea,
 	 batch_weight_key=None)
-      save_weight.add_activations(model,i,j)
+
+      if not args.no_save_weight:
+          save_weight.add_activations(model,i,j)
+
       if args.mean_classifier:
         model.evaluate_using_mean = False
       standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
@@ -370,7 +380,9 @@ else:
       trainer._tensorboard.add_train_scalar("forgetting_metric/standard_" + task,
 					    c_standard_metric[task],
 					    timestep=tid)
-  save_weight.write_activations(overall_metrics, trainer, tasks)
+  if not args.no_save_weight:
+      save_weight.write_activations(overall_metrics, trainer, tasks)
+
   trainer._tensorboard._train_log.close()
 
 if not args.diff_class:

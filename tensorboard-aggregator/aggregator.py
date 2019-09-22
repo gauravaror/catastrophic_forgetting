@@ -28,6 +28,7 @@ def extract(dpath, subpath, args):
 
     # Get and validate all scalar keys
     all_keys = [tuple(scalar_accumulator.Keys()) for scalar_accumulator in scalar_accumulators]
+    print("set of all keys ", all_keys)
     all_keys_set = [set(scalar_accumulator.Keys()) for scalar_accumulator in scalar_accumulators]
     #assert len(set(all_keys_set)) == 1, "All runs need to have the same scalar keys. There are mismatches in {}".format(all_keys_set)
     keys = all_keys[0]
@@ -43,7 +44,12 @@ def extract(dpath, subpath, args):
         # Check if current key occurs starts with any of allowed keys.
         log_key = (len(list(filter(lambda x: key.startswith(x), allowed_keys))) > 0)
         if log_key:
-            found_keys.append(key)
+            present_in_all = True
+            for av_set in all_keys_set:
+                if not key in av_set:
+                    present_in_all = False
+            if present_in_all:
+                found_keys.append(key)
     keys=found_keys
 
     keys_list = all_keys[0]
@@ -55,6 +61,7 @@ def extract(dpath, subpath, args):
                          for all_scalar_events in all_scalar_events_per_key]
 
     for i, all_steps in enumerate(all_steps_per_key):
+        print(i, all_steps)
         assert len(set(all_steps)) == 1, "For scalar {} the step numbering or count doesn't match. Step count for all runs: {}".format(
             keys[i], [len(steps) for steps in all_steps])
         #del keys_list[i]
