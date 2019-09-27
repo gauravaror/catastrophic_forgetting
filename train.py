@@ -168,7 +168,8 @@ word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
 experiment="lstm"
 print("CNN",args.cnn)
 if args.cnn:
-  experiment="cnn"
+  experiment="cnn_"
+  experiment += args.pooling
   print(" Going CNN",args.cnn)
   ngrams_f=(2,)
   cnn = CnnEncoder(embedding_dim=args.e_dim,
