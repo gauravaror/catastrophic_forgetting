@@ -60,11 +60,12 @@ class MajorityClassifier(Model):
      logi[self.vocab.get_token_index("SUBJECTIVE", "labels")] = 1
      logi=torch.Tensor(np.repeat([logi], label.size(0),0))
    output = {}
-   print("Going foward , do we have labels", label)
+   #print("Going foward , do we have labels", label)
    if label is not None:
      _, preds = logi.max(dim=1)
-     #print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
-     #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     print("mathew majority ", self.average.get_metric())
      self.accuracy(logi, label)
      output["loss"] = torch.tensor([0])
    return output
@@ -118,7 +119,7 @@ class MainClassifier(Model):
     output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
       _, preds = tag_logits.max(dim=1)
-      #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
       #bad.register_hooks(tag_logits)
@@ -175,7 +176,7 @@ class Seq2SeqClassifier(Model):
 
     if label is not None:
       _, preds = tag_logits.max(dim=1)
-      #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
 

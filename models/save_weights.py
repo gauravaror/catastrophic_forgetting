@@ -168,7 +168,7 @@ class SaveWeights:
               val['layer'] = self.layer
               val['h_dim'] = self.hdim
               val['code'] = self.code
-              val['accuracy'] = overall_metrics[evalua][task]['accuracy']
+              val['metric'] = overall_metrics[evalua][task]['metric']
               final_val.append(val)
     mydf=pd.DataFrame(final_val)
     filename="final_corr/%s_layer_%s_hdim_%s_code_%s.df"%(str(self.encoder_type),str(self.layer),str(self.hdim), str(self.code))

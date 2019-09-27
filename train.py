@@ -351,7 +351,13 @@ else:
 
       if args.mean_classifier:
         model.evaluate_using_mean = False
-      standard_metric = (float(metric['accuracy']) - majority[j]) / (sota[j] - majority[j])
+
+      if j == 'cola':
+          metric['metric'] = metric['average']
+      else:
+          metric['metric'] = metric['accuracy']
+
+      standard_metric = (float(metric['metric']) - majority[j]) / (sota[j] - majority[j])
       if j not in overall_metrics:
         overall_metrics[j] = {}
         overall_metrics[j][i] = metric
@@ -360,8 +366,8 @@ else:
       else:
         overall_metrics[j][i] = metric
         ostandard_metrics[j][i] = standard_metric
-      print("Adding timestep to trainer",tid, tasks, j, float(metric['accuracy']))
-      trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['accuracy']), timestep=tid)
+      print("Adding timestep to trainer",tid, tasks, j, float(metric['metric']))
+      trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['metric']), timestep=tid)
       trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j), standard_metric, timestep=tid)
     if not args.majority:
       print("\n Joint Evaluating ")
@@ -415,8 +421,8 @@ for d in train:
   insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
   i=0
   for k in evaluate_tasks:
-    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["accuracy"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["accuracy"]
+    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["metric"])
+    insert_pandas_dict[k] = overall_metrics[k][d]["metric"]
   insert_in_pandas_list.append(insert_pandas_dict)
   print(print_data)
 print("\n\n")
