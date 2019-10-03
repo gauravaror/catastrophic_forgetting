@@ -39,9 +39,9 @@ import models.utils as utils
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
 
-majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0.692599620493358, 'ag': 0.25, 'sst_2c': 0.51}
+majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0, 'ag': 0.25, 'sst_2c': 0.51}
 
-sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.772, 'ag' : 0.955 , 'sst_2c': 0.968}
+sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.341, 'ag' : 0.955 , 'sst_2c': 0.968}
 
 
 parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
