@@ -128,7 +128,7 @@ def get_catastrophic_metric(tasks, metrics):
         current_forgetting = (metrics[tasks[i]][tasks[i]] - metrics[tasks[i]][last_task])
         # Normalize it by it's value.
         use_metric = metrics[tasks[i]][tasks[i]]
-        if abs(current_forgetting) < 0.05:
+        if abs(use_metric) == 0:
             use_metric = 1
         current_forgetting = current_forgetting/abs(use_metric)
         #print(f'Got forgetting for task {task} :  {current_forgetting}')
