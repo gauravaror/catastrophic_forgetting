@@ -58,6 +58,7 @@ parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs t
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
 parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
+parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
 
 # Optimization Based Parameters
 parser.add_argument('--wdecay', type=float, help="L2 Norm to use")
@@ -170,7 +171,6 @@ print("CNN",args.cnn)
 if args.cnn:
   experiment="cnn_"
   experiment += args.pooling
-  print(" Going CNN",args.cnn)
   ngrams_f=(2,)
   cnn = CnnEncoder(embedding_dim=args.e_dim,
                    num_layers=args.layers,
@@ -192,24 +192,20 @@ elif args.seq2vec or args.majority:
   lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
-					   batch_first=True))
-  print(" Going LSTM",args.cnn)
-  lstmseq = PytorchSeq2SeqWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
-					   num_layers=args.layers,
-					   dropout=args.dropout,
+					   bidirectional=args.bidirectional,
 					   batch_first=True))
   if args.gru:
     experiment="gru"
     lstm = PytorchSeq2VecWrapper(torch.nn.GRU(args.e_dim, args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
+					   bidirectional=args.bidirectional,
 					   batch_first=True))
   model = MainClassifier(word_embeddings, lstm, vocab)
   if args.majority:
     model = MajorityClassifier(vocab)
 else:
   experiment="selfattention"
-  print(" Going Attention",args.cnn)
   attentionseq = StackedSelfAttentionEncoder(
 					   input_dim=args.e_dim,
 					   hidden_dim=args.h_dim,
@@ -219,6 +215,8 @@ else:
 					   num_attention_heads=8,
 					   attention_dropout_prob=args.dropout)
   model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
+
+print("Running Experiment " , experiment)
 
 if not args.no_save_weight:
     save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
