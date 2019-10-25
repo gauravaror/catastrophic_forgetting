@@ -34,11 +34,7 @@ class CoLADatasetReader(DatasetReader):
             for line in f:
                 reference, tags,author,sentence = line.strip().split("\t")
                 sentence = sentence.split()
-                if (len(sentence) < 6):
-                  sentence.append("UNK")
-                  sentence.append("UNK")
-                  sentence.append("UNK")
-                  sentence.append("UNK")
-                  sentence.append("UNK")
-                  sentence.append("UNK")
+                if (len(sentence) < 12):
+                  for i in range(12):
+                      sentence.append("UNK")
                 yield self.text_to_instance([Token(word) for word in sentence], tags)

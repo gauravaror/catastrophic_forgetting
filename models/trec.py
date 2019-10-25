@@ -35,4 +35,7 @@ class TrecDatasetReader(DatasetReader):
                 full_tags, sentence = line.strip().split(' ', 1)
                 tags, fine_tags = full_tags.strip().split(':', 1)
                 sentence = sentence.split()
+                if (len(sentence) < 12):
+                  for i in range(12):
+                      sentence.append("UNK")
                 yield self.text_to_instance([Token(word) for word in sentence], tags)

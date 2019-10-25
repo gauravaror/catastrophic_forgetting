@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 from overrides import overrides
 import torch
 from torch.nn import Conv1d, Linear
+import torch.nn as nn
 
 from allennlp.modules.seq2vec_encoders.seq2vec_encoder import Seq2VecEncoder
 from allennlp.nn import Activation
@@ -59,6 +60,7 @@ class CnnEncoder(Seq2VecEncoder):
         self._ngram_filter_sizes = ngram_filter_sizes
         self._activation = conv_layer_activation or Activation.by_name('relu')()
         self._output_dim = output_dim
+        self._pool_operator = nn.MaxPool1d(3,2)
         self._convolution_layers = [Conv1d(in_channels=self._embedding_dim,
                                            out_channels=self._num_filters,
                                            kernel_size=ngram_size)
@@ -108,14 +110,16 @@ class CnnEncoder(Seq2VecEncoder):
         activations=[]
         filter_outputs = []
         gram_acti=[]
+        print("initial token size", tokens.shape)
         for i in range(len(self._convolution_layers)):
             convolution_layer = getattr(self, 'conv_layer_{}'.format(i))
             #print("Size of tokens", tokens.size())
             x=convolution_layer(tokens)
             #print("Size After convolution", x.size())
             x=self._activation(x)
+            x=self._pool_operator(x)
             gram_acti.append(x.data.clone().cpu())
-            #print("Size After Activation", x.size())
+            print("Size After Activation", x.size())
             filter_outputs.append(x)
         activations.extend(gram_acti)
         #for f in filter_outputs:
@@ -132,13 +136,15 @@ class CnnEncoder(Seq2VecEncoder):
             for i in range(len(self._convolution_layers2[a])):
                 convolution_layer = getattr(self, 'conv_layer{}_{}'.format(a,i))
                 input_new=self._activation(convolution_layer(maxpool_output))
+                print("New input shape", input_new.shape)
+                input_new=self._pool_operator(input_new)
                 gram_acti.append(input_new.data.clone().cpu())
                 filter_outputs.append(input_new)
             maxpool_output = torch.cat(filter_outputs, dim=2) if len(filter_outputs) > 1 else filter_outputs[0]
             activations.extend(gram_acti)
             #print("Layer", a ,maxpool_output.size())
-        #print("Before max pool size", maxpool_output.size())
-        #print("After max pool size", maxpool_output.max(dim=2)[0].size())
+        print("Before max pool size", maxpool_output.size())
+        print("After max pool size", maxpool_output.max(dim=2)[0].size())
 
         if self.projection_layer:
             result = self.projection_layer(maxpool_output)

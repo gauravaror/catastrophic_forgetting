@@ -35,4 +35,7 @@ class AGNewsDatasetReader(DatasetReader):
                 full_tags, sentence = line.strip().split(',', 1)
                 tag = full_tags.replace('\"','')
                 sentence = sentence.replace('\"','').split()
+                if (len(sentence) < 12):
+                  for i in range(12):
+                      sentence.append("UNK")
                 yield self.text_to_instance([Token(word) for word in sentence], tag)

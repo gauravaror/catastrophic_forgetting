@@ -34,4 +34,7 @@ class SubjectivityDatasetReader(DatasetReader):
             for line in f:
                 tags, sentence = line.strip().split(':', 1)
                 sentence = sentence.split()
+                if (len(sentence) < 12):
+                  for i in range(12):
+                      sentence.append("UNK")
                 yield self.text_to_instance([Token(word) for word in sentence], tags)

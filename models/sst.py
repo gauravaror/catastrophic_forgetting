@@ -97,13 +97,9 @@ class StanfordSentimentTreeBankDatasetReader1(DatasetReader):
                 The sentiment label of the sentence or phrase.
         """
         # pylint: disable=arguments-differ
-        if (len(tokens) < 6):
-          tokens.append("UNK")
-          tokens.append("UNK")
-          tokens.append("UNK")
-          tokens.append("UNK")
-          tokens.append("UNK")
-          tokens.append("UNK")
+        if (len(tokens) < 12):
+            for i in range(12):
+                tokens.append("UNK")
         text_field = TextField([Token(x) for x in tokens], token_indexers=self._token_indexers)
         fields: Dict[str, Field] = {"tokens": text_field}
         if sentiment is not None:
