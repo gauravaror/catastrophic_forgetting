@@ -7,17 +7,16 @@ from allennlp.common.file_utils import cached_path
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
 from allennlp.data.vocabulary import Vocabulary
+from models.base_reader import BaseReader
 
-
-class TrecDatasetReader(DatasetReader):
+class TrecDatasetReader(BaseReader):
     """
     DatasetReader for Trec Question Classification, one sentence per line, like
 
          LOC:city Tell me what city the Kentucky Horse Park is near ?
     """
-    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None) -> None:
-        super().__init__(lazy=False)
-        self.token_indexers = token_indexers or {"tokens": SingleIdTokenIndexer()}
+    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings='default') -> None:
+        super().__init__(token_indexers=token_indexers, embeddings=embeddings)
 
     def text_to_instance(self, tokens: List[Token], tags: List[str] = None) -> Instance:
         sentence_field = TextField(tokens, self.token_indexers)
@@ -34,5 +33,5 @@ class TrecDatasetReader(DatasetReader):
             for line in f:
                 full_tags, sentence = line.strip().split(' ', 1)
                 tags, fine_tags = full_tags.strip().split(':', 1)
-                sentence = sentence.split()
+                sentence = self.tokenize(sentence)
                 yield self.text_to_instance([Token(word) for word in sentence], tags)

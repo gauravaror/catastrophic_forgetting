@@ -11,12 +11,13 @@ from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
 from allennlp.common.checks import ConfigurationError
+from models.base_reader import BaseReader
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 @DatasetReader.register("sst_tokens1")
-class StanfordSentimentTreeBankDatasetReader1(DatasetReader):
+class StanfordSentimentTreeBankDatasetReader1(BaseReader):
     """
     Reads tokens and their sentiment labels from the Stanford Sentiment Treebank.
     The Stanford Sentiment Treebank comes with labels
@@ -49,9 +50,8 @@ class StanfordSentimentTreeBankDatasetReader1(DatasetReader):
                  token_indexers: Dict[str, TokenIndexer] = None,
                  use_subtrees: bool = False,
                  granularity: str = "5-class",
-                 lazy: bool = False) -> None:
-        super().__init__(lazy=lazy)
-        self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
+                 lazy: bool = False, embeddings = 'default') -> None:
+        super().__init__(lazy=lazy, embeddings=embeddings, token_indexers=token_indexers)
         self._use_subtrees = use_subtrees
         allowed_granularities = ["5-class", "3-class", "2-class"]
         if granularity not in allowed_granularities:
@@ -104,7 +104,7 @@ class StanfordSentimentTreeBankDatasetReader1(DatasetReader):
           tokens.append("UNK")
           tokens.append("UNK")
           tokens.append("UNK")
-        text_field = TextField([Token(x) for x in tokens], token_indexers=self._token_indexers)
+        text_field = TextField([Token(x) for x in tokens], token_indexers=self.token_indexers)
         fields: Dict[str, Field] = {"tokens": text_field}
         if sentiment is not None:
             # 0 and 1 are negative sentiment, 2 is neutral, and 3 and 4 are positive sentiment

@@ -59,6 +59,7 @@ parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
 parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
 parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
+parser.add_argument('--embeddings', help="Use which embedding ElMO embeddings or BERT",type=str, default='default')
 
 # Optimization Based Parameters
 parser.add_argument('--wdecay', type=float, help="L2 Norm to use")
@@ -105,7 +106,7 @@ few_data = {}
 vocabulary = {}
 
 for task in tasks:
-  utils.load_dataset(task, train_data, dev_data, few_data)
+  utils.load_dataset(task, train_data, dev_data, few_data, args.embeddings)
 
 if not args.train:
    print("Train option not provided,  defaulting to tasks")
@@ -159,11 +160,7 @@ vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
 #vocab.print_statistics()
 
-
-token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
-	  embedding_dim=args.e_dim)
-
-word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
+word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim)
 
 
 experiment="lstm"
@@ -172,14 +169,14 @@ if args.cnn:
   experiment="cnn_"
   experiment += args.pooling
   ngrams_f=(2,)
-  cnn = CnnEncoder(embedding_dim=args.e_dim,
+  cnn = CnnEncoder(embedding_dim=word_embeddings.get_output_dim(),
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
 		   num_filters=args.h_dim,
                    pooling=args.pooling)
   if args.pyramid:
       experiment="dpcnn"
-      cnn = DeepPyramidCNN(embedding_dim=args.e_dim,
+      cnn = DeepPyramidCNN(embedding_dim=word_embeddings.get_output_dim(),
                        num_layers=args.layers,
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
@@ -189,14 +186,14 @@ if args.cnn:
     model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
-  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
+  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(word_embeddings.get_output_dim(), args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
 					   batch_first=True))
   if args.gru:
     experiment="gru"
-    lstm = PytorchSeq2VecWrapper(torch.nn.GRU(args.e_dim, args.h_dim,
+    lstm = PytorchSeq2VecWrapper(torch.nn.GRU( word_embeddings.get_output_dim(), args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
@@ -207,7 +204,7 @@ elif args.seq2vec or args.majority:
 else:
   experiment="selfattention"
   attentionseq = StackedSelfAttentionEncoder(
-					   input_dim=args.e_dim,
+					   input_dim=word_embeddings.get_output_dim(),
 					   hidden_dim=args.h_dim,
 					   projection_dim=128,
 					   feedforward_hidden_dim=128,

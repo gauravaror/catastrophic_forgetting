@@ -7,17 +7,17 @@ from allennlp.common.file_utils import cached_path
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
 from allennlp.data.vocabulary import Vocabulary
+from models.base_reader import BaseReader
 
 
-class CoLADatasetReader(DatasetReader):
+class CoLADatasetReader(BaseReader):
     """
     DatasetReader for Trec Question Classification, one sentence per line, like
 
          LOC:city Tell me what city the Kentucky Horse Park is near ?
     """
-    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None) -> None:
-        super().__init__(lazy=False)
-        self.token_indexers = token_indexers or {"tokens": SingleIdTokenIndexer()}
+    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings='default') -> None:
+        super().__init__(lazy=False, token_indexers=token_indexers, embeddings=embeddings)
 
     def text_to_instance(self, tokens: List[Token], tags: List[str] = None) -> Instance:
         sentence_field = TextField(tokens, self.token_indexers)
@@ -33,7 +33,7 @@ class CoLADatasetReader(DatasetReader):
         with open(file_path, encoding="ISO-8859-1") as f:
             for line in f:
                 reference, tags,author,sentence = line.strip().split("\t")
-                sentence = sentence.split()
+                sentence = self.tokenize(sentence)
                 if (len(sentence) < 6):
                   sentence.append("UNK")
                   sentence.append("UNK")
