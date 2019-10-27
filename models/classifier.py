@@ -60,11 +60,12 @@ class MajorityClassifier(Model):
      logi[self.vocab.get_token_index("SUBJECTIVE", "labels")] = 1
      logi=torch.Tensor(np.repeat([logi], label.size(0),0))
    output = {}
-   print("Going foward , do we have labels", label)
+   #print("Going foward , do we have labels", label)
    if label is not None:
      _, preds = logi.max(dim=1)
-     #print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
-     #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+     print("mathew majority ", self.average.get_metric())
      self.accuracy(logi, label)
      output["loss"] = torch.tensor([0])
    return output
@@ -118,7 +119,7 @@ class MainClassifier(Model):
     output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
       _, preds = tag_logits.max(dim=1)
-      #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
       #bad.register_hooks(tag_logits)
@@ -149,6 +150,8 @@ class Seq2SeqClassifier(Model):
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
     self.average  = Average()
+    self.activations = []
+    self.labels = []
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
     self.classification_layers.append(torch.nn.Linear(in_features=self.hidden_dim, out_features=vocab.get_vocab_size('labels')))
@@ -168,10 +171,12 @@ class Seq2SeqClassifier(Model):
     encoder_out = self.encoder(embeddings, mask)
     tag_logits = self.hidden2tag(torch.nn.functional.adaptive_max_pool1d(encoder_out.permute(0,2,1), (1,)).view(-1, self.hidden_dim))
     output = {'logits': tag_logits }
+    self.activations = encoder_out
+    self.labels = label
 
     if label is not None:
       _, preds = tag_logits.max(dim=1)
-      #self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
 
@@ -179,3 +184,6 @@ class Seq2SeqClassifier(Model):
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
     return {"accuracy": self.accuracy.get_metric(reset), "average": self.average.get_metric(reset)}
+
+  def get_activations(self) -> []:
+    return self.activations, self.labels

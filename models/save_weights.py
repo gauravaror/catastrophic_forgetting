@@ -35,9 +35,9 @@ class SaveWeights:
       self.labels[train] = {}
       self.mean_representation[train] = {}
       self.encoder_representation[train] = {}
-      if self.encoder_type == "cnn":
+      if self.encoder_type.startswith("cnn"):
           self.weights[train] = self.get_weights(model.encoder)
-      if self.encoder_type == "lstm":
+      if self.encoder_type.startswith("lstm"):
           self.weights[train] = self.get_weights(model.encoder._module)
     self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
     if self.mean_classifier:
@@ -74,13 +74,13 @@ class SaveWeights:
   def get_arr_rep(self, data, task):
     # This is used to find the test instances currently being processed.
     test_instances = {'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
-    if self.encoder_type == 'cnn':
+    if self.encoder_type.startswith('cnn'):
       new_representation = torch.cat(data, dim=2)
       samples, filters, gram = new_representation.shape
       new_representation =  new_representation.reshape(filters, samples*gram)
       new_representation = utils.torch_remove_neg(new_representation)
       return new_representation
-    elif self.encoder_type == 'lstm':
+    elif self.encoder_type.startswith('lstm'):
       print("Shape of tensors ", data.shape)
       data = data.to('cpu').detach()
       if data.shape[1] < data.shape[0]:
@@ -145,7 +145,7 @@ class SaveWeights:
 
                 current_weight = torch.cat(self.weights[task], dim=1)
                 current_weight = current_weight.reshape(current_weight.shape[0], -1)
-                if self.encoder_type == 'lstm':
+                if self.encoder_type.startswith('lstm'):
                     if first_weight.shape[0] > first_weight.shape[1]:
                         first_weight = first_weight.reshape(first_weight.shape[1], first_weight.shape[0])
                         current_weight = current_weight.reshape(current_weight.shape[1], current_weight.shape[0])
@@ -168,7 +168,7 @@ class SaveWeights:
               val['layer'] = self.layer
               val['h_dim'] = self.hdim
               val['code'] = self.code
-              val['accuracy'] = overall_metrics[evalua][task]['accuracy']
+              val['metric'] = overall_metrics[evalua][task]['metric']
               final_val.append(val)
     mydf=pd.DataFrame(final_val)
     filename="final_corr/%s_layer_%s_hdim_%s_code_%s.df"%(str(self.encoder_type),str(self.layer),str(self.hdim), str(self.code))
