@@ -28,7 +28,6 @@ def extract(dpath, subpath, args):
 
     # Get and validate all scalar keys
     all_keys = [tuple(scalar_accumulator.Keys()) for scalar_accumulator in scalar_accumulators]
-    print("set of all keys ", all_keys)
     all_keys_set = [set(scalar_accumulator.Keys()) for scalar_accumulator in scalar_accumulators]
     #assert len(set(all_keys_set)) == 1, "All runs need to have the same scalar keys. There are mismatches in {}".format(all_keys_set)
     keys = all_keys[0]
