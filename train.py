@@ -279,6 +279,12 @@ else:
       trainer.model = model
       trainer.iterator = iterator
       trainer._validation_iterator = iterator
+      if i == 'cola':
+          trainer._validation_metric = 'average'
+          trainer.validation_metric = '+average'
+      else:
+          trainer._validation_metric = 'accuracy'
+          trainer.validation_metric = '+accuracy'
       trainer._metric_tracker.clear()
     if not args.majority:
       metrics = trainer.train()
