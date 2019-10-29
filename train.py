@@ -57,7 +57,7 @@ parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
-parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
+parser.add_argument('--bs', type=int, default=128, help="Batch size to use")
 parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
 parser.add_argument('--embeddings', help="Use which embedding ElMO embeddings or BERT",type=str, default='default')
 
@@ -295,7 +295,7 @@ else:
       if args.diff_class:
         model.set_task(j)
         # This batch size of 10000 is hack to get activation while doing evaluation.
-        iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
+        iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
         if args.few_shot:
           met = evaluate(model=model,
@@ -309,8 +309,6 @@ else:
             if name.startswith('encoder') or name.startswith('word_embeddings'):
               print("Freezing param ", name)
               param.requires_grad = False
-          iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
-          iterator1.index_with(vocabulary[j])
           trainer.model = model
           trainer.train_data = few_data[j]
           trainer._validation_data = few_data[j]
@@ -320,8 +318,6 @@ else:
           trainer._num_epochs = 10
           trainer.train()
           # Back to hack of 10000 to get all the activations together as
-          iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
-          iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
       if args.mean_classifier:
         model.adding_mean_representation = True
@@ -333,7 +329,7 @@ else:
         model.adding_mean_representation = False
         model.get_mean_prune_sampler()
         model.evaluate_using_mean = True
-      print("Now evaluating ", j)
+      print("Now evaluating ", j, len(dev_data[j]))
       metric = evaluate(model=model,
 	 instances=dev_data[j],
 	 data_iterator=iterator1,
@@ -341,14 +337,15 @@ else:
 	 batch_weight_key=None)
 
       # Take first 500 instances for evaluating activations.
-      evaluate(model=model,
-	 instances=dev_data[j][:500],
-	 data_iterator=iterator1,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
-
       if not args.no_save_weight:
-          save_weight.add_activations(model,i,j)
+         iterator1 = BucketIterator(batch_size=500, sorting_keys=[("tokens", "num_tokens")])
+         iterator1.index_with(vocabulary[j])
+         evaluate(model=model,
+	     instances=dev_data[j][:500],
+	     data_iterator=iterator1,
+	     cuda_device=devicea,
+	     batch_weight_key=None)
+         save_weight.add_activations(model,i,j)
 
       if args.mean_classifier:
         model.evaluate_using_mean = False
