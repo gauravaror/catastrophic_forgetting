@@ -163,8 +163,8 @@ def torch_remove_neg(matrix):
 
 def get_embedder(type_, vocab, e_dim):
     if type_ == 'elmo':
-        opt_file = "data/elmo_2x4096_512_2048cnn_2xhighway_options.json"
-        wt_file = "data/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
+        opt_file = "data/elmo_2x1024_128_2048cnn_1xhighway_options.json"
+        wt_file = "data/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
         elmo_embedder = ElmoTokenEmbedder(opt_file, wt_file)
         word_embeddings = BasicTextFieldEmbedder({"tokens": elmo_embedder})
         return word_embeddings
