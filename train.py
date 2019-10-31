@@ -90,14 +90,7 @@ args = parser.parse_args()
 #writer.add_text("args", str(args))
 
 
-print("Training on these tasks", args.task, 
-      "\nJoint", args.joint,
-      "\nepochs", args.epochs,
-      "\nlayers", args.layers,
-      "\ndropout", args.dropout,
-      "\ne_dim", args.e_dim,
-      "\nh_dim", args.h_dim,
-      "\ndiff_class", args.diff_class)
+print("Arguments", args)
 tasks = list(args.task)
 
 train_data = {}
@@ -402,14 +395,7 @@ if not args.diff_class:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
 
-print("Training Results are on these :", args.task,
-      "\nJoint", args.joint,
-      "\nepochs", args.epochs,
-      "\nlayers", args.layers,
-      "\ndropout", args.dropout,
-      "\ne_dim", args.e_dim,
-      "\nh_dim", args.h_dim,
-      "\ndiff_class", args.diff_class)
+print("Training Results are on these Arguments", args)
 
 print("Accuracy and Loss")
 header="Accuracy"
