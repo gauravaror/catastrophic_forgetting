@@ -253,6 +253,7 @@ else:
                   iterator=iterator,
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
+                  validation_metric="-loss",
                   num_serialized_models_to_keep=1,
                   model_save_interval=1,
                   serialization_dir=run_name,
@@ -274,10 +275,12 @@ else:
       trainer._validation_iterator = iterator
       if i == 'cola':
           trainer._validation_metric = 'average'
+          trainer._metric_tracker._should_decrease = False
           trainer.validation_metric = '+average'
       else:
-          trainer._validation_metric = 'accuracy'
-          trainer.validation_metric = '+accuracy'
+          trainer._validation_metric = 'loss'
+          trainer._metric_tracker._should_decrease = True
+          trainer.validation_metric = '-loss'
       trainer._metric_tracker.clear()
     if not args.majority:
       metrics = trainer.train()
