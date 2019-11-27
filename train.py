@@ -58,8 +58,9 @@ parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
-parser.add_argument('--bs', type=float, default=128, help="Batch size to use")
+parser.add_argument('--bs', type=int, default=128, help="Batch size to use")
 parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
+parser.add_argument('--embeddings', help="Use which embedding ElMO embeddings or BERT",type=str, default='default')
 
 # Optimization Based Parameters
 parser.add_argument('--wdecay', type=float, help="L2 Norm to use")
@@ -91,14 +92,7 @@ args = parser.parse_args()
 #writer.add_text("args", str(args))
 
 
-print("Training on these tasks", args.task, 
-      "\nJoint", args.joint,
-      "\nepochs", args.epochs,
-      "\nlayers", args.layers,
-      "\ndropout", args.dropout,
-      "\ne_dim", args.e_dim,
-      "\nh_dim", args.h_dim,
-      "\ndiff_class", args.diff_class)
+print("Arguments", args)
 tasks = list(args.task)
 
 train_data = {}
@@ -107,7 +101,7 @@ few_data = {}
 vocabulary = {}
 
 for task in tasks:
-  utils.load_dataset(task, train_data, dev_data, few_data)
+  utils.load_dataset(task, train_data, dev_data, few_data, args.embeddings)
 
 if not args.train:
    print("Train option not provided,  defaulting to tasks")
@@ -161,11 +155,7 @@ vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
 #vocab.print_statistics()
 
-
-token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
-	  embedding_dim=args.e_dim)
-
-word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
+word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim)
 
 
 experiment="lstm"
@@ -174,14 +164,14 @@ if args.cnn:
   experiment="cnn_"
   experiment += args.pooling
   ngrams_f=(2,)
-  cnn = CnnEncoder(embedding_dim=args.e_dim,
+  cnn = CnnEncoder(embedding_dim=word_embeddings.get_output_dim(),
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
 		   num_filters=args.h_dim,
                    pooling=args.pooling)
   if args.pyramid:
       experiment="dpcnn"
-      cnn = DeepPyramidCNN(embedding_dim=args.e_dim,
+      cnn = DeepPyramidCNN(embedding_dim=word_embeddings.get_output_dim(),
                        num_layers=args.layers,
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
@@ -191,14 +181,14 @@ if args.cnn:
     model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
-  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(args.e_dim, args.h_dim,
+  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(word_embeddings.get_output_dim(), args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
 					   batch_first=True))
   if args.gru:
     experiment="gru"
-    lstm = PytorchSeq2VecWrapper(torch.nn.GRU(args.e_dim, args.h_dim,
+    lstm = PytorchSeq2VecWrapper(torch.nn.GRU( word_embeddings.get_output_dim(), args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
@@ -216,7 +206,7 @@ elif args.seq2vec or args.majority:
 else:
   experiment="selfattention"
   attentionseq = StackedSelfAttentionEncoder(
-					   input_dim=args.e_dim,
+					   input_dim=word_embeddings.get_output_dim(),
 					   hidden_dim=args.h_dim,
 					   projection_dim=128,
 					   feedforward_hidden_dim=128,
@@ -272,6 +262,7 @@ else:
                   iterator=iterator,
                   train_dataset=train_data[i],
                   validation_dataset=dev_data[i],
+                  validation_metric="-loss",
                   num_serialized_models_to_keep=1,
                   model_save_interval=1,
                   serialization_dir=run_name,
@@ -291,6 +282,14 @@ else:
       trainer.model = model
       trainer.iterator = iterator
       trainer._validation_iterator = iterator
+      if i == 'cola':
+          trainer._validation_metric = 'average'
+          trainer._metric_tracker._should_decrease = False
+          trainer.validation_metric = '+average'
+      else:
+          trainer._validation_metric = 'loss'
+          trainer._metric_tracker._should_decrease = True
+          trainer.validation_metric = '-loss'
       trainer._metric_tracker.clear()
     if not args.majority:
       metrics = trainer.train()
@@ -301,7 +300,7 @@ else:
       if args.diff_class:
         model.set_task(j)
         # This batch size of 10000 is hack to get activation while doing evaluation.
-        iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
+        iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
         if args.few_shot:
           met = evaluate(model=model,
@@ -315,8 +314,6 @@ else:
             if name.startswith('encoder') or name.startswith('word_embeddings'):
               print("Freezing param ", name)
               param.requires_grad = False
-          iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
-          iterator1.index_with(vocabulary[j])
           trainer.model = model
           trainer.train_data = few_data[j]
           trainer._validation_data = few_data[j]
@@ -326,8 +323,6 @@ else:
           trainer._num_epochs = 10
           trainer.train()
           # Back to hack of 10000 to get all the activations together as
-          iterator1 = BucketIterator(batch_size=10000, sorting_keys=[("tokens", "num_tokens")])
-          iterator1.index_with(vocabulary[j])
           trainer._num_epochs = args.epochs
       if args.mean_classifier:
         model.adding_mean_representation = True
@@ -339,7 +334,7 @@ else:
         model.adding_mean_representation = False
         model.get_mean_prune_sampler()
         model.evaluate_using_mean = True
-      print("Now evaluating ", j)
+      print("Now evaluating ", j, len(dev_data[j]))
       metric = evaluate(model=model,
 	 instances=dev_data[j],
 	 data_iterator=iterator1,
@@ -348,13 +343,14 @@ else:
 
       # Take first 500 instances for evaluating activations.
       if not args.no_save_weight:
-          evaluate(model=model,
+         iterator1 = BucketIterator(batch_size=500, sorting_keys=[("tokens", "num_tokens")])
+         iterator1.index_with(vocabulary[j])
+         evaluate(model=model,
 	     instances=dev_data[j][:500],
 	     data_iterator=iterator1,
-	    cuda_device=devicea,
-	    batch_weight_key=None)
-
-          save_weight.add_activations(model,i,j)
+	     cuda_device=devicea,
+	     batch_weight_key=None)
+         save_weight.add_activations(model,i,j)
 
       if args.mean_classifier:
         model.evaluate_using_mean = False
@@ -408,14 +404,7 @@ if not args.diff_class:
 	 cuda_device=devicea,
 	 batch_weight_key=None)
 
-print("Training Results are on these :", args.task,
-      "\nJoint", args.joint,
-      "\nepochs", args.epochs,
-      "\nlayers", args.layers,
-      "\ndropout", args.dropout,
-      "\ne_dim", args.e_dim,
-      "\nh_dim", args.h_dim,
-      "\ndiff_class", args.diff_class)
+print("Training Results are on these Arguments", args)
 
 print("Accuracy and Loss")
 header="Accuracy"

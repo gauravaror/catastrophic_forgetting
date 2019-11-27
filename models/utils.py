@@ -17,6 +17,11 @@ from models.CoLA import CoLADatasetReader
 from models.ag import AGNewsDatasetReader
 from allennlp.data.dataset_readers import DatasetReader
 from models.sst import StanfordSentimentTreeBankDatasetReader1
+from allennlp.modules.token_embedders.elmo_token_embedder import ElmoTokenEmbedder
+from allennlp.modules.seq2vec_encoders.cnn_encoder  import CnnEncoder
+from allennlp.modules.token_embedders.bert_token_embedder import PretrainedBertEmbedder
+from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
+from allennlp.modules.token_embedders import Embedding
 
 
 def get_optimizer(opt, parameters, lr_, wdecay):
@@ -32,35 +37,35 @@ def get_optimizer(opt, parameters, lr_, wdecay):
         move_optimizer_to_cuda(myopt)
     return myopt
 
-def load_dataset(code, train_data, dev_data, few_data):
+def load_dataset(code, train_data, dev_data, few_data, embeddings='default'):
   if code == "sst_2c":
     # Sentiment task 2 class
-    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class")
+    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class", embeddings=embeddding)
     train_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/train.txt')
     dev_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/dev.txt')
     few_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/few.txt')
   elif code == 'sst':
-    reader_senti = StanfordSentimentTreeBankDatasetReader1()
+    reader_senti = StanfordSentimentTreeBankDatasetReader1(embeddings=embeddings)
     train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
     dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
     few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
   elif code == 'cola':
-    reader_cola = CoLADatasetReader()
+    reader_cola = CoLADatasetReader(embeddings=embeddings)
     train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
     dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
     few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
   elif code == 'trec':
-    reader_trec = TrecDatasetReader()
+    reader_trec = TrecDatasetReader(embeddings=embeddings)
     train_data["trec"] = reader_trec.read('data/TREC/train.txt')
     dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
     few_data["trec"] = reader_trec.read('data/TREC/few.txt')
   elif code == 'subjectivity':
-    reader_subj = SubjectivityDatasetReader()
+    reader_subj = SubjectivityDatasetReader(embeddings=embeddings)
     train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
     dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
     few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
   elif code == 'ag':
-    reader_ag = AGNewsDatasetReader()
+    reader_ag = AGNewsDatasetReader(embeddings=embeddings)
     train_data["ag"] = reader_ag.read('data/ag/train.csv')
     dev_data["ag"] = reader_ag.read('data/ag/val.csv')
     few_data["ag"] = reader_ag.read('data/ag/val.csv')
@@ -155,3 +160,24 @@ def torch_remove_neg(matrix):
     mask = matrix < 0
     matrix = matrix.masked_fill(mask, 0)
     return matrix
+
+def get_embedder(type_, vocab, e_dim):
+    if type_ == 'elmo':
+        opt_file = "data/elmo_2x1024_128_2048cnn_1xhighway_options.json"
+        wt_file = "data/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
+        elmo_embedder = ElmoTokenEmbedder(opt_file, wt_file)
+        word_embeddings = BasicTextFieldEmbedder({"tokens": elmo_embedder})
+        return word_embeddings
+    elif type_ == 'bert':
+        bert_embedder = PretrainedBertEmbedder(pretrained_model="bert-base-uncased",
+                                           top_layer_only=True,)
+        word_embeddings = BasicTextFieldEmbedder({"tokens": bert_embedder},
+                                                                allow_unmatched_keys = True)
+        return word_embeddings
+    else:
+        token_embeddings = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
+                                     embedding_dim=e_dim)
+        word_embeddings = BasicTextFieldEmbedder({"tokens": token_embeddings})
+        return word_embeddings
+
+
