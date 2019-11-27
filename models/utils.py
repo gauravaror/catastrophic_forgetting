@@ -161,16 +161,16 @@ def torch_remove_neg(matrix):
     matrix = matrix.masked_fill(mask, 0)
     return matrix
 
-def get_embedder(type_, vocab, e_dim):
+def get_embedder(type_, vocab, e_dim, rq_grad=False):
     if type_ == 'elmo':
         opt_file = "data/elmo_2x1024_128_2048cnn_1xhighway_options.json"
         wt_file = "data/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
-        elmo_embedder = ElmoTokenEmbedder(opt_file, wt_file)
+        elmo_embedder = ElmoTokenEmbedder(opt_file, wt_file, requires_grad=rq_grad)
         word_embeddings = BasicTextFieldEmbedder({"tokens": elmo_embedder})
         return word_embeddings
     elif type_ == 'bert':
         bert_embedder = PretrainedBertEmbedder(pretrained_model="bert-base-uncased",
-                                           top_layer_only=True,)
+                                           top_layer_only=True,requires_grad=rq_grad)
         word_embeddings = BasicTextFieldEmbedder({"tokens": bert_embedder},
                                                                 allow_unmatched_keys = True)
         return word_embeddings

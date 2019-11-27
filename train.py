@@ -57,7 +57,7 @@ parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
-parser.add_argument('--bs', type=int, default=128, help="Batch size to use")
+parser.add_argument('--bs', type=int, default=64, help="Batch size to use")
 parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
 parser.add_argument('--embeddings', help="Use which embedding ElMO embeddings or BERT",type=str, default='default')
 
@@ -73,6 +73,7 @@ parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
 parser.add_argument('--seq2vec', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
+parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
@@ -153,7 +154,7 @@ vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
 #vocab.print_statistics()
 
-word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim)
+word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim, rq_grad=args.train_embeddings)
 
 
 experiment="lstm"
