@@ -20,6 +20,7 @@ from allennlp.models import Model
 
 from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
 from models.cnn_encoder import CnnEncoder
+from models.encoder_IDA import EncoderRNN
 
 from models.deep_pyramid_cnn import DeepPyramidCNN
 from allennlp.training.metrics import CategoricalAccuracy
@@ -72,6 +73,7 @@ parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
 parser.add_argument('--seq2vec', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
+parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
@@ -201,6 +203,13 @@ elif args.seq2vec or args.majority:
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
 					   batch_first=True))
+  if args.IDA:
+    experiment="IDA"
+    lstm = EncoderRNN(args.e_dim, args.h_dim,
+                                            num_layers=args.layers,
+                                            dropout=args.dropout,
+                                            bidirectional=args.bidirectional,
+                                            batch_first=True)
   model = MainClassifier(word_embeddings, lstm, vocab)
   if args.majority:
     model = MajorityClassifier(vocab)
@@ -338,13 +347,13 @@ else:
 	 batch_weight_key=None)
 
       # Take first 500 instances for evaluating activations.
-      evaluate(model=model,
-	 instances=dev_data[j][:500],
-	 data_iterator=iterator1,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
-
       if not args.no_save_weight:
+          evaluate(model=model,
+	     instances=dev_data[j][:500],
+	     data_iterator=iterator1,
+	    cuda_device=devicea,
+	    batch_weight_key=None)
+
           save_weight.add_activations(model,i,j)
 
       if args.mean_classifier:
