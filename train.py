@@ -21,6 +21,7 @@ from allennlp.models import Model
 from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
 from models.cnn_encoder import CnnEncoder
 from models.encoder_IDA import EncoderRNN
+from models.transformer_encoder import TransformerRepresentation
 
 from models.deep_pyramid_cnn import DeepPyramidCNN
 from allennlp.training.metrics import CategoricalAccuracy
@@ -73,7 +74,8 @@ parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension"
 parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
 parser.add_argument('--s_dir', help="Serialization directory")
 parser.add_argument('--seq2vec', help="Use Sequence to sequence",action='store_true')
-parser.add_argument('--gru', help="Use GRU UNIt",action='store_true')
+parser.add_argument('--gru', help="Use GRU unit",action='store_true')
+parser.add_argument('--transformer', help="Use transformer unit",action='store_true')
 parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
@@ -202,6 +204,13 @@ elif args.seq2vec or args.majority:
                                             bidirectional=args.bidirectional,
                                             batch_first=True)
   model = MainClassifier(word_embeddings, lstm, vocab)
+  if args.transformer:
+    experiment="transformer"
+    lstm = TransformerRepresentation(args.e_dim, # Embedding Dimension
+                      8, # Number of heads to use in embeddings.
+                      args.h_dim, # Number of hidden units
+                      args.layers, # Number of Layers
+                      dropout=args.dropout)
   if args.majority:
     model = MajorityClassifier(vocab)
 else:
