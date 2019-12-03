@@ -11,7 +11,7 @@ If you want to access version used in ALTA 2019 paper, use branch [alta_paper](h
 * svcca (https://github.com/google/svcca)
 * numpy
 * pandas
-* 
+
 ## Installation Step
 
 1. Create a virtual environment
