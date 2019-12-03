@@ -1,5 +1,6 @@
 # Does an LSTM forget more than a CNN? An empirical study of catastrophic forgetting in NLP
 
+If you want to access version used in ALTA Paper, use branch (alta_paper)
 This is repository contains code for experiment to evaluate catastrophic forgetting in neural networks for ALTA paper.
 
 ## Requirements
