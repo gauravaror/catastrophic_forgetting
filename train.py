@@ -284,6 +284,7 @@ else:
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.diff_class:
+      model.encoder.add_target_pad(500)
       model.set_task(i)
       trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])

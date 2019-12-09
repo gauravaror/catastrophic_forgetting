@@ -62,7 +62,7 @@ class EncoderRNN(nn.Module):
         key_representations = []
         for i,mem_key in enumerate(mem_k):
               key_representations.append(torch.exp(mem_key(hidden.squeeze(0))))
-        alpha_tilda = torch.cat(key_representations)
+        alpha_tilda = torch.cat(key_representations, dim=1)
 
         # Normalize the key representation like softmax, calculate the sum over all memory keys.
         alpha_sum = torch.sum(alpha_tilda, dim = 1).view(-1, 1) # batch x 1
