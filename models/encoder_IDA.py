@@ -31,95 +31,50 @@ class EncoderRNN(nn.Module):
         self.n_layers = num_layers
         self.base_rnn = base_rnn
         self.dropout_p = dropout_p
-        self.num_mem_slots = 300
         self.mem_context_size = 300
         
         self.dropout = nn.Dropout(dropout_p)
         self.forward_rnn = self.base_rnn(self.e_dim + self.mem_context_size, self.hidden_size, self.n_layers)
         self.backward_rnn = self.base_rnn(self.e_dim + self.mem_context_size, self.hidden_size, self.n_layers)
 
-        self.target_mem_slots =  500
-        self.target_mem_slots_2 = 500
-        self.target_mem_slots_3 = 500
-        self.target_mem_slots_4 = 500
-
-        self.M_k_fwd = nn.Linear(self.hidden_size, self.num_mem_slots, bias=False)
-        self.M_v_fwd = nn.Linear(self.num_mem_slots, self.mem_context_size, bias=False)
-        self.M_k_bkwd = nn.Linear(self.hidden_size, self.num_mem_slots, bias=False)
-        self.M_v_bkwd = nn.Linear(self.num_mem_slots, self.mem_context_size, bias=False)
-
-        self.M_k_fwd_target = None# --> When testing on 1st target or training for 2nd target pad, use self.M_k_fwd_target =  nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_fwd_target = None# --> When testing on 1st target or training for 2nd target pad, use self.M_v_fwd_target =  nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target = None# --> When testing on 1st target or training for 2nd target pad, use self.M_k_bkwd_target = nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_bkwd_target = None# --> When testing on 1st target or training for 2nd target pad, use self.M_v_bkwd_target = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-
-        self.M_k_fwd_target_2 = None# --> When testing on 2nd target or training for 3rd target pad, use self.M_k_fwd_target_2 = nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_fwd_target_2 = None#  --> When testing on 2nd target or training for 3rd target pad, use self.M_v_fwd_target_2 = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target_2 = None# --> When testing on 2nd target or training for 3rd target pad, use self.M_k_bkwd_target_2 = nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_bkwd_target_2 = None# --> When testing on 2nd target or training for 3rd target pad, use self.M_v_bkwd_target_2 = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-
-        self.M_k_fwd_target_3 = None# --> When testing on 3rd target or training for 4th target pad, use self.M_k_fwd_target_3 =  nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_fwd_target_3 = None#  --> When testing on 3rd target or training for 4th target pad, use self.M_v_fwd_target_3 = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target_3 = None# --> When testing on 3rd target or training for 4th target pad, use self.M_k_bkwd_target_3 =  nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_bkwd_target_3 = None# --> When testing on 3rd target or training for 4th target pad, use self.M_v_bkwd_target_3 =  nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-
-        self.M_k_fwd_target_4 = None# --> When testing on 4th target or training for 5th target pad, use self.M_k_fwd_target_4 =  nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_fwd_target_4 = None#  --> When testing on 4th target or training for 5th target pad, use self.M_v_fwd_target_4 = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target_4 = None# --> When testing on 4th target or training for 5th target pad, use self.M_k_bkwd_target_4 = nn.Linear(hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_bkwd_target_4 = None# --> When testing on 4th target or training for 5th target pad, use self.M_v_bkwd_target_4 = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-
+        self.M_k_fwd = nn.ModuleList()
+        self.M_v_fwd = nn.ModuleList()
+        self.M_k_bkwd = nn.ModuleList()
+        self.M_v_bkwd = nn.ModuleList()
+        self.add_target_pad(500)
 
     def get_output_dim(self):
         return 2*self.hidden_size
        
-    def add_target_pad(self):
-        self.M_k_fwd_target = nn.Linear(self.hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_fwd_target = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target = nn.Linear(self.hidden_size, self.target_mem_slots, bias=False)
-        self.M_v_bkwd_target = nn.Linear(self.target_mem_slots, self.mem_context_size, bias=False)
+    def add_target_pad(self, mem_size):
+        self.M_k_fwd.append(nn.Linear(self.hidden_size, mem_size, bias=False))
+        self.M_v_fwd.append(nn.Linear(mem_size, self.mem_context_size, bias=False))
+        self.M_k_bkwd.append(nn.Linear(self.hidden_size, mem_size, bias=False))
+        self.M_v_bkwd.append(nn.Linear(mem_size, self.mem_context_size, bias=False))
 
         if USE_CUDA:
-            self.M_k_fwd_target = self.M_k_fwd_target.cuda()
-            self.M_v_fwd_target = self.M_v_fwd_target.cuda()
-            self.M_k_bkwd_target = self.M_k_bkwd_target.cuda()
-            self.M_v_bkwd_target = self.M_v_bkwd_target.cuda()
+            self.M_k_fwd.cuda()
+            self.M_v_fwd.cuda()
+            self.M_k_bkwd.cuda()
+            self.M_v_bkwd.cuda()
 
-    def add_target_pad_2(self):
-        self.M_k_fwd_target_2 = nn.Linear(self.hidden_size, self.target_mem_slots_2, bias=False)
-        self.M_v_fwd_target_2 = nn.Linear(self.target_mem_slots_2, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target_2 = nn.Linear(self.hidden_size, self.target_mem_slots_2, bias=False)
-        self.M_v_bkwd_target_2 = nn.Linear(self.target_mem_slots_2, self.mem_context_size, bias=False)
+    def access_memory(self, hidden, mem_k, mem_v):
+        key_representations = []
+        for i,mem_key in enumerate(mem_k):
+              key_representations.append(torch.exp(mem_key(hidden.squeeze(0))))
+        alpha_tilda = torch.cat(key_representations)
 
+        # Normalize the key representation like softmax, calculate the sum over all memory keys.
+        alpha_sum = torch.sum(alpha_tilda, dim = 1).view(-1, 1) # batch x 1
+
+        mem_context_arr = []
+        for k,mem_val in zip(key_representations, mem_v):
+            key_softmaxed = torch.div(k, alpha_sum.expand(k.size()))
+            mem_context_arr.append(mem_val(key_softmaxed))
+        mem_context = torch.stack(mem_context_arr, dim=0).sum(dim=0)
         if USE_CUDA:
-            self.M_k_fwd_target_2 = self.M_k_fwd_target_2.cuda()
-            self.M_v_fwd_target_2 = self.M_v_fwd_target_2.cuda()
-            self.M_k_bkwd_target_2 = self.M_k_bkwd_target_2.cuda()
-            self.M_v_bkwd_target_2 = self.M_v_bkwd_target_2.cuda()
-        
-    def add_target_pad_3(self):
-        self.M_k_fwd_target_3 = nn.Linear(self.hidden_size, self.target_mem_slots_3, bias=False)
-        self.M_v_fwd_target_3 = nn.Linear(self.target_mem_slots_3, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target_3 = nn.Linear(self.hidden_size, self.target_mem_slots_3, bias=False)
-        self.M_v_bkwd_target_3 = nn.Linear(self.target_mem_slots_3, self.mem_context_size, bias=False)
-
-        if USE_CUDA:
-            self.M_k_fwd_target_3 = self.M_k_fwd_target_3.cuda()
-            self.M_v_fwd_target_3 = self.M_v_fwd_target_3.cuda()
-            self.M_k_bkwd_target_3 = self.M_k_bkwd_target_3.cuda()
-            self.M_v_bkwd_target_3 = self.M_v_bkwd_target_3.cuda()
-
-    def add_target_pad_4(self):
-        self.M_k_fwd_target_4 = nn.Linear(self.hidden_size, self.target_mem_slots_4, bias=False)
-        self.M_v_fwd_target_4 = nn.Linear(self.target_mem_slots_4, self.mem_context_size, bias=False)
-        self.M_k_bkwd_target_4 = nn.Linear(self.hidden_size, self.target_mem_slots_4, bias=False)
-        self.M_v_bkwd_target_4 = nn.Linear(self.target_mem_slots_4, self.mem_context_size, bias=False)
-
-        if USE_CUDA:
-            self.M_k_fwd_target_4 = self.M_k_fwd_target_4.cuda()
-            self.M_v_fwd_target_4 = self.M_v_fwd_target_4.cuda()
-            self.M_k_bkwd_target_4 = self.M_k_bkwd_target_4.cuda()
-            self.M_v_bkwd_target_4 = self.M_v_bkwd_target_4.cuda()
-
+            mem_context = mem_context.cuda()
+        return mem_context
 
     def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None):
         input_seqs = input_seqs.permute(1,0,2)
@@ -156,64 +111,8 @@ class EncoderRNN(nn.Module):
             # Calculate attention from memory:
             ######################################
             if hidden_f is not None:
-                if self.M_k_fwd_target is None:
-                    alpha_tilde = torch.exp(self.M_k_fwd(hidden_f.squeeze(0))) # batch x num_slots
-                elif self.M_k_fwd_target is not None and self.M_k_fwd_target_2 is None:
-                    alpha_source = torch.exp(self.M_k_fwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_fwd_target(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target), 1) # batch x (old+new slots)
-                elif self.M_k_fwd_target is not None and self.M_k_fwd_target_2 is not None and self.M_k_fwd_target_3 is None:
-                    alpha_source = torch.exp(self.M_k_fwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_fwd_target(hidden_f.squeeze(0)))
-                    alpha_target_2 = torch.exp(self.M_k_fwd_target_2(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target, alpha_target_2), 1)
-                elif self.M_k_fwd_target is not None and self.M_k_fwd_target_2 is not None and self.M_k_fwd_target_3 is not None and self.M_k_fwd_target_4 is None:
-                    alpha_source = torch.exp(self.M_k_fwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_fwd_target(hidden_f.squeeze(0)))
-                    alpha_target_2 = torch.exp(self.M_k_fwd_target_2(hidden_f.squeeze(0)))
-                    alpha_target_3 = torch.exp(self.M_k_fwd_target_3(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target, alpha_target_2, alpha_target_3), 1) 
-                else:
-                    alpha_source = torch.exp(self.M_k_fwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_fwd_target(hidden_f.squeeze(0)))
-                    alpha_target_2 = torch.exp(self.M_k_fwd_target_2(hidden_f.squeeze(0)))
-                    alpha_target_3 = torch.exp(self.M_k_fwd_target_3(hidden_f.squeeze(0)))
-                    alpha_target_4 = torch.exp(self.M_k_fwd_target_4(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target, alpha_target_2, alpha_target_3, alpha_target_4), 1)
-
-                alpha_sum = torch.sum(alpha_tilde, dim = 1).view(-1, 1) # batch x 1
-                alpha = torch.div(alpha_tilde, alpha_sum.expand(alpha_tilde.size())) # batch x num_slots
-
-                if self.M_v_fwd_target is None: 
-                    memory_context = self.M_v_fwd(alpha) # batch x context
-                elif self.M_v_fwd_target is not None and self.M_v_fwd_target_2 is None:
-                    mem_context_source = self.M_v_fwd(alpha[:, :self.num_mem_slots]) # batch x old_slots
-                    mem_context_target = self.M_v_fwd_target(alpha[:, self.num_mem_slots:])
-                    memory_context = mem_context_source + mem_context_target
-                elif self.M_v_fwd_target is not None and self.M_v_fwd_target_2 is not None and self.M_v_fwd_target_3 is None:
-                    mem_context_source = self.M_v_fwd(alpha[:, :self.num_mem_slots]) # batch x old_slots
-                    mem_context_target = self.M_v_fwd_target(alpha[:, self.num_mem_slots:self.num_mem_slots+self.target_mem_slots])
-                    mem_context_target_2 = self.M_v_fwd_target_2(alpha[:, self.num_mem_slots+self.target_mem_slots:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2])
-                    memory_context = mem_context_source + mem_context_target + mem_context_target_2
-                elif self.M_v_fwd_target is not None and self.M_v_fwd_target_2 is not None and self.M_v_fwd_target_3 is not None and self.M_v_fwd_target_4 is None:
-                    mem_context_source = self.M_v_fwd(alpha[:, :self.num_mem_slots])
-                    mem_context_target = self.M_v_fwd_target(alpha[:, self.num_mem_slots:self.num_mem_slots+self.target_mem_slots])
-                    mem_context_target_2 = self.M_v_fwd_target_2(alpha[:, self.num_mem_slots+self.target_mem_slots:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2])
-                    mem_context_target_3 = self.M_v_fwd_target_3(alpha[:, self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3])
-                    memory_context = mem_context_source + mem_context_target + mem_context_target_2 + mem_context_target_3
-                else:
-                    mem_context_source = self.M_v_fwd(alpha[:, :self.num_mem_slots]) 
-                    mem_context_target = self.M_v_fwd_target(alpha[:, self.num_mem_slots:self.num_mem_slots+self.target_mem_slots])
-                    mem_context_target_2 = self.M_v_fwd_target_2(alpha[:, self.num_mem_slots+self.target_mem_slots:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2])
-                    mem_context_target_3 = self.M_v_fwd_target_3(alpha[:, self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3])
-                    mem_context_target_4 = self.M_v_fwd_target_4(alpha[:, self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3+self.target_mem_slots_4])
-                    memory_context = mem_context_source + mem_context_target + mem_context_target_2 + mem_context_target_3 + mem_context_target_4
-
-                if USE_CUDA:
-                    memory_context = memory_context.cuda()
-                ######################################
-            
-                #print("Hidden size 3", hidden_f_new[0].size())
+                memory_context = self.access_memory(hidden_f, self.M_k_fwd, self.M_v_fwd)
+           ######################################
 
                 rnn_input = torch.cat( (embedded, memory_context.unsqueeze(0)), 2 )
                 output_f, hidden_f_new = self.forward_rnn(rnn_input, hidden_f_a)
@@ -239,63 +138,8 @@ class EncoderRNN(nn.Module):
             # Calculate attention from memory:
             ######################################
             if hidden_b is not None:
-                if self.M_k_bkwd_target is None:
-                    alpha_tilde = torch.exp(self.M_k_bkwd(hidden_b.squeeze(0))) # batch x num_slots
-                elif self.M_k_bkwd_target is not None and self.M_k_bkwd_target_2 is None:
-                    alpha_source = torch.exp(self.M_k_bkwd(hidden_b.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_bkwd_target(hidden_b.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target), 1)
-                elif self.M_k_bkwd_target is not None and self.M_k_bkwd_target_2 is not None and self.M_k_bkwd_target_3 is None:
-                    alpha_source = torch.exp(self.M_k_bkwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_bkwd_target(hidden_f.squeeze(0)))
-                    alpha_target_2 = torch.exp(self.M_k_bkwd_target_2(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target, alpha_target_2), 1)
-                elif self.M_k_bkwd_target is not None and self.M_k_bkwd_target_2 is not None and self.M_k_bkwd_target_3 is not None and self.M_k_bkwd_target_4 is None:
-                    alpha_source = torch.exp(self.M_k_bkwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_bkwd_target(hidden_f.squeeze(0)))
-                    alpha_target_2 = torch.exp(self.M_k_bkwd_target_2(hidden_f.squeeze(0)))
-                    alpha_target_3 = torch.exp(self.M_k_bkwd_target_3(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target, alpha_target_2, alpha_target_3), 1)
-                else:
-                    alpha_source = torch.exp(self.M_k_bkwd(hidden_f.squeeze(0)))
-                    alpha_target = torch.exp(self.M_k_bkwd_target(hidden_f.squeeze(0)))
-                    alpha_target_2 = torch.exp(self.M_k_bkwd_target_2(hidden_f.squeeze(0)))
-                    alpha_target_3 = torch.exp(self.M_k_bkwd_target_3(hidden_f.squeeze(0)))
-                    alpha_target_4 = torch.exp(self.M_k_bkwd_target_4(hidden_f.squeeze(0)))
-                    alpha_tilde = torch.cat((alpha_source, alpha_target, alpha_target_2, alpha_target_3, alpha_target_4), 1)
-
-                alpha_sum = torch.sum(alpha_tilde, dim = 1).view(-1, 1) # batch x 1
-                alpha = torch.div(alpha_tilde, alpha_sum.expand(alpha_tilde.size())) # batch x num_slots
-                if self.M_v_bkwd_target is None: 
-                    memory_context = self.M_v_bkwd(alpha) # batch x context
-                elif self.M_v_bkwd_target is not None and self.M_v_bkwd_target_2 is None:
-                    mem_context_source = self.M_v_bkwd(alpha[:, :self.num_mem_slots])
-                    mem_context_target = self.M_v_bkwd_target(alpha[:, self.num_mem_slots:])
-                    memory_context = mem_context_source + mem_context_target
-
-                elif self.M_v_bkwd_target is not None and self.M_v_bkwd_target_2 is not None and self.M_v_bkwd_target_3 is None:
-                    mem_context_source = self.M_v_bkwd(alpha[:, :self.num_mem_slots])
-                    mem_context_target = self.M_v_bkwd_target(alpha[:, self.num_mem_slots:self.num_mem_slots+self.target_mem_slots])
-                    mem_context_target_2 = self.M_v_bkwd_target_2(alpha[:, self.num_mem_slots+self.target_mem_slots:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2])
-                    memory_context = mem_context_source + mem_context_target + mem_context_target_2
-                elif self.M_v_bkwd_target is not None and self.M_v_bkwd_target_2 is not None and self.M_v_bkwd_target_3 is not None and self.M_v_bkwd_target_4 is None:
-                    mem_context_source = self.M_v_bkwd(alpha[:, :self.num_mem_slots])
-                    mem_context_target = self.M_v_bkwd_target(alpha[:, self.num_mem_slots:self.num_mem_slots+self.target_mem_slots])
-                    mem_context_target_2 = self.M_v_bkwd_target_2(alpha[:, self.num_mem_slots+self.target_mem_slots:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2])
-                    mem_context_target_3 = self.M_v_bkwd_target_3(alpha[:, self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3])
-                    memory_context = mem_context_source + mem_context_target + mem_context_target_2 + mem_context_target_3
-                else:
-                    mem_context_source = self.M_v_bkwd(alpha[:, :self.num_mem_slots])
-                    mem_context_target = self.M_v_bkwd_target(alpha[:, self.num_mem_slots:self.num_mem_slots+self.target_mem_slots])
-                    mem_context_target_2 = self.M_v_bkwd_target_2(alpha[:, self.num_mem_slots+self.target_mem_slots:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2])
-                    mem_context_target_3 = self.M_v_bkwd_target_3(alpha[:, self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3])
-                    mem_context_target_4 = self.M_v_bkwd_target_4(alpha[:, self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3:self.num_mem_slots+self.target_mem_slots+self.target_mem_slots_2+self.target_mem_slots_3+self.target_mem_slots_4])
-                    memory_context = mem_context_source + mem_context_target + mem_context_target_2 + mem_context_target_3 + mem_context_target_4
-
-
-                if USE_CUDA:
-                    memory_context = memory_context.cuda()
-                ######################################
+                memory_context = self.access_memory(hidden_b, self.M_k_bkwd, self.M_v_bkwd)
+            ######################################
 
                 rnn_input = torch.cat( (embedded, memory_context.unsqueeze(0)), 2 )
                 output_b, hidden_b_new = self.backward_rnn(rnn_input, hidden_b_a)
