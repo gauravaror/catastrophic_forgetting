@@ -78,6 +78,8 @@ parser.add_argument('--gru', help="Use GRU unit",action='store_true')
 parser.add_argument('--transformer', help="Use transformer unit",action='store_true')
 parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
+parser.add_argument('--mem_size', help="Memory size to use for ida", type=int, default=500)
+parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=1)
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
 parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
 parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
@@ -199,10 +201,12 @@ elif args.seq2vec or args.majority:
   if args.IDA:
     experiment="IDA"
     lstm = EncoderRNN(args.e_dim, args.h_dim,
-                                            num_layers=args.layers,
-                                            dropout=args.dropout,
-                                            bidirectional=args.bidirectional,
-                                            batch_first=True)
+                      inv_temp=args.inv_temp,
+                      mem_size=args.mem_size,
+                      num_layers=args.layers,
+                      dropout=args.dropout,
+                      bidirectional=args.bidirectional,
+                      batch_first=True)
   model = MainClassifier(word_embeddings, lstm, vocab)
   if args.transformer:
     experiment="transformer"
@@ -284,7 +288,8 @@ else:
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.diff_class:
-      model.encoder.add_target_pad(500)
+      if args.IDA:
+          model.encoder.add_target_pad(args.mem_size)
       model.set_task(i)
       trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])

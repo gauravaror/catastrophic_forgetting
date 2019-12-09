@@ -23,7 +23,10 @@ def sequence_mask(sequence_length, max_len=None):
 
 class EncoderRNN(nn.Module):
 
-    def __init__(self, e_dim, h_dim, num_layers=1, dropout=0.0, base_rnn=nn.LSTM, dropout_p=0.1, bidirectional=False, batch_first=True):
+    def __init__(self, e_dim, h_dim, mem_size=500, inv_temp=1,
+                 num_layers=1, dropout=0.0, base_rnn=nn.LSTM,
+                 dropout_p=0.1, bidirectional=False,
+                 batch_first=True):
         super(EncoderRNN, self).__init__()
 
         self.e_dim = e_dim
@@ -31,7 +34,9 @@ class EncoderRNN(nn.Module):
         self.n_layers = num_layers
         self.base_rnn = base_rnn
         self.dropout_p = dropout_p
-        self.mem_context_size = 300
+        self.mem_context_size = mem_size
+        self.mem_size = mem_size
+        self.inv_temp = inv_temp
         
         self.dropout = nn.Dropout(dropout_p)
         self.forward_rnn = self.base_rnn(self.e_dim + self.mem_context_size, self.hidden_size, self.n_layers)
@@ -41,7 +46,7 @@ class EncoderRNN(nn.Module):
         self.M_v_fwd = nn.ModuleList()
         self.M_k_bkwd = nn.ModuleList()
         self.M_v_bkwd = nn.ModuleList()
-        self.add_target_pad(500)
+        self.add_target_pad(self.mem_size)
 
     def get_output_dim(self):
         return 2*self.hidden_size
@@ -61,7 +66,7 @@ class EncoderRNN(nn.Module):
     def access_memory(self, hidden, mem_k, mem_v):
         key_representations = []
         for i,mem_key in enumerate(mem_k):
-              key_representations.append(torch.exp(mem_key(hidden.squeeze(0))))
+              key_representations.append(torch.exp(self.inv_temp*mem_key(hidden.squeeze(0))))
         alpha_tilda = torch.cat(key_representations, dim=1)
 
         # Normalize the key representation like softmax, calculate the sum over all memory keys.
