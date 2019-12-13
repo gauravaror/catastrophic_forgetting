@@ -168,6 +168,11 @@ def get_embedder(type_, vocab, e_dim, rq_grad=False):
         elmo_embedder = ElmoTokenEmbedder(opt_file, wt_file, requires_grad=rq_grad)
         word_embeddings = BasicTextFieldEmbedder({"tokens": elmo_embedder})
         return word_embeddings
+    if type_ == 'glove':
+        wt_file = "data/glove.6B.300d.txt"
+        glove_embedder = Embedding(400000, 300, pretrained_file=wt_file, trainable=rq_grad)
+        word_embeddings = BasicTextFieldEmbedder({"tokens": glove_embedder})
+        return word_embeddings
     elif type_ == 'bert':
         bert_embedder = PretrainedBertEmbedder(pretrained_model="bert-base-uncased",
                                            top_layer_only=True,requires_grad=rq_grad)

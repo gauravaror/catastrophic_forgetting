@@ -21,6 +21,7 @@ from allennlp.models import Model
 from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
 from models.cnn_encoder import CnnEncoder
 from models.encoder_IDA import EncoderRNN
+from models.hashedIDA import HashedMemoryRNN
 from models.transformer_encoder import TransformerRepresentation
 
 from models.deep_pyramid_cnn import DeepPyramidCNN
@@ -78,6 +79,7 @@ parser.add_argument('--gru', help="Use GRU unit",action='store_true')
 parser.add_argument('--transformer', help="Use transformer unit",action='store_true')
 parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
+parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
 parser.add_argument('--mem_size', help="Memory size to use for ida", type=int, default=500)
 parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=1)
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
@@ -198,9 +200,18 @@ elif args.seq2vec or args.majority:
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
 					   batch_first=True))
+  if args.hashed:
+    experiment="HashedMemoryRNN"
+    lstm = HashedMemoryRNN(word_embeddings.get_output_dim(), args.h_dim,
+                      inv_temp=args.inv_temp,
+                      mem_size=args.mem_size,
+                      num_layers=args.layers,
+                      dropout=args.dropout,
+                      bidirectional=args.bidirectional,
+                      batch_first=True)
   if args.IDA:
     experiment="IDA"
-    lstm = EncoderRNN(args.e_dim, args.h_dim,
+    lstm = EncoderRNN(word_embeddings.get_output_dim(), args.h_dim,
                       inv_temp=args.inv_temp,
                       mem_size=args.mem_size,
                       num_layers=args.layers,
