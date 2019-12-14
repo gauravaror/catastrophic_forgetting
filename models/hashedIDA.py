@@ -1,4 +1,5 @@
 # Code taken from here: https://github.com/nabihach/IDA/blob/master/nli/encoder.py , Paper : https://openreview.net/forum?id=rJgkE5HsnV
+from typing import Iterator, List, Dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -36,22 +37,24 @@ class HashedMemoryRNN(EncoderRNN):
     def __init__(self, e_dim, h_dim, mem_size=500, inv_temp=1,
                  num_layers=1, dropout=0.0, base_rnn=nn.LSTM,
                  dropout_p=0.1, bidirectional=False,
-                 batch_first=True):
+                 batch_first=True, memmory_embed=None):
         super(HashedMemoryRNN, self).__init__(e_dim=e_dim, h_dim=h_dim, mem_size=mem_size,
                                               inv_temp=inv_temp, num_layers=num_layers,
                                               dropout=dropout, base_rnn=base_rnn,
                                               bidirectional=bidirectional, batch_first=batch_first)
         self.acc_slots = 20
         self.hh = Hash(self.e_dim, self.mem_size)
+        self.memory_embeddings = memmory_embed
 
     def access_memory(self, embedded : torch.Tensor, mem_v: nn.Linear):
         accessd_mem = self.hh.hash(embedded, self.mem_size)
-        #print("Memory access ", accessd_mem)
         memory_context = mem_v(accessd_mem)
         return memory_context
         
-    def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None):
+    def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None, mem_tokens=None):
         input_seqs = input_seqs.permute(1,0,2)
+        mem_embeddings = self.memory_embeddings(mem_tokens)
+        mem_embeddings = mem_embeddings.permute(1,0,2)
         #print(input_seqs.size(), input_lengths.size())
         max_input_length, batch_size,  _ = input_seqs.size()
 
@@ -78,14 +81,16 @@ class HashedMemoryRNN(EncoderRNN):
         #forward pass
         for i in range(max_input_length):
             embedded = input_seqs[i]
+            mem_embedded = mem_embeddings[i]
             embedded = self.dropout(embedded)
             embedded = embedded.unsqueeze(0)  # S=1 x B x N
+            mem_embedded = mem_embedded.unsqueeze(0)  # S=1 x B x N
 
 
             # Calculate attention from memory:
             ######################################
             if hidden_f is not None:
-                memory_context = self.access_memory(embedded, self.M_v_fwd[0])
+                memory_context = self.access_memory(mem_embedded, self.M_v_fwd[0])
            ######################################
 
                 rnn_input = torch.cat((embedded, memory_context), 2)
@@ -112,9 +117,8 @@ class HashedMemoryRNN(EncoderRNN):
             # Calculate attention from memory:
             ######################################
             if hidden_b is not None:
-                memory_context = self.access_memory(embedded, self.M_v_bkwd[0])
+                memory_context = self.access_memory(mem_embedded, self.M_v_bkwd[0])
             ######################################
-
                 rnn_input = torch.cat( (embedded, memory_context), 2 )
                 output_b, hidden_b_new = self.backward_rnn(rnn_input, hidden_b_a)
             else:
