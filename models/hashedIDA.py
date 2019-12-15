@@ -25,6 +25,7 @@ def sequence_mask(sequence_length, max_len=None):
 class Hash:
     def __init__(self, dimension: int, access_slots: int):
         self.p = 2147483647
+        #self.p = 131071
         self.coef = torch.randint(1, self.p,(dimension, access_slots),dtype=torch.float, requires_grad=False)
         if USE_CUDA:
             self.coef = self.coef.cuda()
@@ -43,11 +44,12 @@ class HashedMemoryRNN(EncoderRNN):
                                               dropout=dropout, base_rnn=base_rnn,
                                               bidirectional=bidirectional, batch_first=batch_first)
         self.acc_slots = 20
-        self.hh = Hash(self.e_dim, self.mem_size)
         self.memory_embeddings = memmory_embed
+        self.hh = Hash(self.memory_embeddings.get_output_dim(), self.mem_size)
 
     def access_memory(self, embedded : torch.Tensor, mem_v: nn.Linear):
         accessd_mem = self.hh.hash(embedded, self.mem_size)
+        #print(accessd_mem, accessd_mem.shape, accessd_mem.sum(2)) # 1xBxembedding_dim
         memory_context = mem_v(accessd_mem)
         return memory_context
         

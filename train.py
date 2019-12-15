@@ -202,7 +202,7 @@ elif args.seq2vec or args.majority:
 					   batch_first=True))
   if args.hashed:
     experiment="HashedMemoryRNN"
-    memory_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim, rq_grad=False)
+    memory_embeddings = utils.get_embedder("glove", vocab, args.e_dim, rq_grad=False)
     lstm = HashedMemoryRNN(word_embeddings.get_output_dim(), args.h_dim,
                       inv_temp=args.inv_temp,
                       mem_size=args.mem_size,
