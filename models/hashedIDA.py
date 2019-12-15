@@ -7,6 +7,8 @@ from models.encoder_IDA import EncoderRNN
 import numpy as np
 import torch
 
+from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrapper
+
 USE_CUDA = torch.cuda.is_available()
 
 def sequence_mask(sequence_length, max_len=None):
@@ -43,22 +45,33 @@ class HashedMemoryRNN(EncoderRNN):
                                               inv_temp=inv_temp, num_layers=num_layers,
                                               dropout=dropout, base_rnn=base_rnn,
                                               bidirectional=bidirectional, batch_first=batch_first)
-        self.acc_slots = 20
+        self.acc_slots = 3
         self.memory_embeddings = memmory_embed
-        self.hh = Hash(self.memory_embeddings.get_output_dim(), self.mem_size)
+        self.hh = [Hash(self.memory_embeddings.get_output_dim(), self.mem_size) for _ in range(self.acc_slots)]
+        self.lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(e_dim + mem_size, h_dim,
+                                              num_layers=num_layers,
+                                              dropout=dropout,
+                                              bidirectional=bidirectional,
+                                              batch_first=batch_first))
+
+    def get_output_dim(self):
+        return self.hidden_size
 
     def access_memory(self, embedded : torch.Tensor, mem_v: nn.Linear):
-        accessd_mem = self.hh.hash(embedded, self.mem_size)
-        #print(accessd_mem, accessd_mem.shape, accessd_mem.sum(2)) # 1xBxembedding_dim
+        accessd_mem = torch.sum(torch.stack([hfn.hash(embedded, self.mem_size) for hfn in self.hh], embedded.dim()-1), embedded.dim()-1)
         memory_context = mem_v(accessd_mem)
         return memory_context
         
     def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None, mem_tokens=None):
-        input_seqs = input_seqs.permute(1,0,2)
+        #input_seqs = input_seqs.permute(1,0,2)
         mem_embeddings = self.memory_embeddings(mem_tokens)
-        mem_embeddings = mem_embeddings.permute(1,0,2)
-        #print(input_seqs.size(), input_lengths.size())
+        #mem_embeddings = mem_embeddings.permute(1,0,2)
         max_input_length, batch_size,  _ = input_seqs.size()
+        memory_context = self.access_memory(mem_embeddings, self.M_v_fwd[0])
+        input_seq = torch.cat((input_seqs, memory_context), 2)
+        return self.lstm(input_seq, input_lengths), []
+
+"""
 
         hidden_f_a = None
         hidden_b_a = None
@@ -150,3 +163,4 @@ class HashedMemoryRNN(EncoderRNN):
         hiddens_out = hiddens_out.contiguous().view(batch_size, -1)
         #return masked_forward_outs, masked_backward_outs, hiddens_out
         return hiddens_out, []
+"""
