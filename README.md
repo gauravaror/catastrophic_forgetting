@@ -1,7 +1,8 @@
 # Does an LSTM forget more than a CNN? An empirical study of catastrophic forgetting in NLP
 
-If you want to access version used in ALTA Paper, use branch (alta_paper)
-This is repository contains code for experiment to evaluate catastrophic forgetting in neural networks for ALTA paper.
+This is repository contains code for the experiment to evaluate catastrophic forgetting in neural networks for ALTA paper.
+
+If you want to access version used in ALTA 2019 paper, use branch [alta_paper](https://github.com/gauravaror/catastrophic_forgetting/tree/alta_paper)
 
 ## Requirements
 
@@ -10,7 +11,7 @@ This is repository contains code for experiment to evaluate catastrophic forgett
 * svcca (https://github.com/google/svcca)
 * numpy
 * pandas
-* 
+
 ## Installation Step
 
 1. Create a virtual environment

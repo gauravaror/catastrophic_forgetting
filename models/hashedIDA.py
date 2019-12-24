@@ -1,8 +1,13 @@
 # Code taken from here: https://github.com/nabihach/IDA/blob/master/nli/encoder.py , Paper : https://openreview.net/forum?id=rJgkE5HsnV
+from typing import Iterator, List, Dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.encoder_IDA import EncoderRNN
+import numpy as np
+import torch
 
+from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrapper
 
 USE_CUDA = torch.cuda.is_available()
 
@@ -19,72 +24,54 @@ def sequence_mask(sequence_length, max_len=None):
                          .expand_as(seq_range_expand))
     return seq_range_expand < seq_length_expand
 
+class Hash:
+    def __init__(self, dimension: int, access_slots: int):
+        self.p = 2147483647
+        #self.p = 131071
+        self.coef = torch.randint(1, self.p,(dimension, access_slots),dtype=torch.float, requires_grad=False)
+        if USE_CUDA:
+            self.coef = self.coef.cuda()
 
+    def hash(self, inp, rang):
+        return torch.softmax(inp@self.coef, inp.dim()-1)
 
-class EncoderRNN(nn.Module):
+class HashedMemoryRNN(EncoderRNN):
 
     def __init__(self, e_dim, h_dim, mem_size=500, inv_temp=1,
                  num_layers=1, dropout=0.0, base_rnn=nn.LSTM,
                  dropout_p=0.1, bidirectional=False,
-                 batch_first=True):
-        super(EncoderRNN, self).__init__()
-
-        self.e_dim = e_dim
-        self.hidden_size = h_dim
-        self.n_layers = num_layers
-        self.base_rnn = base_rnn
-        self.dropout_p = dropout_p
-        self.mem_context_size = mem_size
-        self.mem_size = mem_size
-        self.inv_temp = inv_temp
-        
-        self.dropout = nn.Dropout(dropout_p)
-        self.forward_rnn = self.base_rnn(self.e_dim + self.mem_context_size, self.hidden_size, self.n_layers)
-        self.backward_rnn = self.base_rnn(self.e_dim + self.mem_context_size, self.hidden_size, self.n_layers)
-
-        self.M_k_fwd = nn.ModuleList()
-        self.M_v_fwd = nn.ModuleList()
-        self.M_k_bkwd = nn.ModuleList()
-        self.M_v_bkwd = nn.ModuleList()
-        self.add_target_pad(self.mem_size)
+                 batch_first=True, memmory_embed=None):
+        super(HashedMemoryRNN, self).__init__(e_dim=e_dim, h_dim=h_dim, mem_size=mem_size,
+                                              inv_temp=inv_temp, num_layers=num_layers,
+                                              dropout=dropout, base_rnn=base_rnn,
+                                              bidirectional=bidirectional, batch_first=batch_first)
+        self.acc_slots = 3
+        self.memory_embeddings = memmory_embed
+        self.hh = [Hash(self.memory_embeddings.get_output_dim(), self.mem_size) for _ in range(self.acc_slots)]
+        self.lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(e_dim + mem_size, h_dim,
+                                              num_layers=num_layers,
+                                              dropout=dropout,
+                                              bidirectional=bidirectional,
+                                              batch_first=batch_first))
 
     def get_output_dim(self):
-        return 2*self.hidden_size
-       
-    def add_target_pad(self, mem_size):
-        self.M_k_fwd.append(nn.Linear(self.hidden_size, mem_size, bias=False))
-        self.M_v_fwd.append(nn.Linear(mem_size, self.mem_context_size, bias=False))
-        self.M_k_bkwd.append(nn.Linear(self.hidden_size, mem_size, bias=False))
-        self.M_v_bkwd.append(nn.Linear(mem_size, self.mem_context_size, bias=False))
+        return self.hidden_size
 
-        if USE_CUDA:
-            self.M_k_fwd.cuda()
-            self.M_v_fwd.cuda()
-            self.M_k_bkwd.cuda()
-            self.M_v_bkwd.cuda()
-
-    def access_memory(self, hidden, mem_k, mem_v):
-        key_representations = []
-        for i,mem_key in enumerate(mem_k):
-              key_representations.append(torch.exp(self.inv_temp*mem_key(hidden.squeeze(0))))
-        alpha_tilda = torch.cat(key_representations, dim=1)
-
-        # Normalize the key representation like softmax, calculate the sum over all memory keys.
-        alpha_sum = torch.sum(alpha_tilda, dim = 1).view(-1, 1) # batch x 1
-
-        mem_context_arr = []
-        for k,mem_val in zip(key_representations, mem_v):
-            key_softmaxed = torch.div(k, alpha_sum.expand(k.size()))
-            mem_context_arr.append(mem_val(key_softmaxed))
-        mem_context = torch.stack(mem_context_arr, dim=0).sum(dim=0)
-        if USE_CUDA:
-            mem_context = mem_context.cuda()
-        return mem_context
-
-    def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None):
-        input_seqs = input_seqs.permute(1,0,2)
-        #print(input_seqs.size(), input_lengths.size())
+    def access_memory(self, embedded : torch.Tensor, mem_v: nn.Linear):
+        accessd_mem = torch.sum(torch.stack([hfn.hash(embedded, self.mem_size) for hfn in self.hh], embedded.dim()-1), embedded.dim()-1)
+        memory_context = mem_v(accessd_mem)
+        return memory_context
+        
+    def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None, mem_tokens=None):
+        #input_seqs = input_seqs.permute(1,0,2)
+        mem_embeddings = self.memory_embeddings(mem_tokens)
+        #mem_embeddings = mem_embeddings.permute(1,0,2)
         max_input_length, batch_size,  _ = input_seqs.size()
+        memory_context = self.access_memory(mem_embeddings, self.M_v_fwd[0])
+        input_seq = torch.cat((input_seqs, memory_context), 2)
+        return self.lstm(input_seq, input_lengths), []
+
+"""
 
         hidden_f_a = None
         hidden_b_a = None
@@ -109,17 +96,19 @@ class EncoderRNN(nn.Module):
         #forward pass
         for i in range(max_input_length):
             embedded = input_seqs[i]
+            mem_embedded = mem_embeddings[i]
             embedded = self.dropout(embedded)
             embedded = embedded.unsqueeze(0)  # S=1 x B x N
+            mem_embedded = mem_embedded.unsqueeze(0)  # S=1 x B x N
 
 
             # Calculate attention from memory:
             ######################################
             if hidden_f is not None:
-                memory_context = self.access_memory(hidden_f, self.M_k_fwd, self.M_v_fwd)
+                memory_context = self.access_memory(mem_embedded, self.M_v_fwd[0])
            ######################################
 
-                rnn_input = torch.cat( (embedded, memory_context.unsqueeze(0)), 2 )
+                rnn_input = torch.cat((embedded, memory_context), 2)
                 output_f, hidden_f_new = self.forward_rnn(rnn_input, hidden_f_a)
             else:
                 rnn_input = torch.cat((embedded, dummy_tensor), 2)
@@ -143,10 +132,9 @@ class EncoderRNN(nn.Module):
             # Calculate attention from memory:
             ######################################
             if hidden_b is not None:
-                memory_context = self.access_memory(hidden_b, self.M_k_bkwd, self.M_v_bkwd)
+                memory_context = self.access_memory(mem_embedded, self.M_v_bkwd[0])
             ######################################
-
-                rnn_input = torch.cat( (embedded, memory_context.unsqueeze(0)), 2 )
+                rnn_input = torch.cat( (embedded, memory_context), 2 )
                 output_b, hidden_b_new = self.backward_rnn(rnn_input, hidden_b_a)
             else:
                 rnn_input = torch.cat((embedded, dummy_tensor), 2)
@@ -175,26 +163,4 @@ class EncoderRNN(nn.Module):
         hiddens_out = hiddens_out.contiguous().view(batch_size, -1)
         #return masked_forward_outs, masked_backward_outs, hiddens_out
         return hiddens_out, []
-
-
-    def init_hidden(self, batch_size):
-        if self.base_rnn == nn.LSTM:
-            return self._init_LSTM(batch_size)
-        elif self.base_rnn == nn.GRU:
-            return self._init_GRU(batch_size)
-        else:
-            raise NotImplementedError()
-
-    def _init_GRU(self, batch_size):
-        result = Variable(torch.zeros(1, batch_size, self.hidden_size))
-        if USE_CUDA:
-            return result.cuda()
-        else:
-            return result
-
-    def _init_LSTM(self, batch_size):
-        result = (torch.Tensor(torch.zeros(1, batch_size, self.hidden_size)), torch.Tensor(torch.zeros(1, batch_size, self.hidden_size)))
-        if USE_CUDA:
-            return result.cuda()
-        else:
-            return result
+"""
