@@ -109,7 +109,9 @@ class MainClassifier(Model):
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
     if type(self.encoder) == HashedMemoryRNN:
-        output = self.encoder(embeddings, mask, mem_tokens=tokens)
+        tensor = torch.ones((2,))
+        task_tensor = tensor.new_full((embeddings.shape[0], embeddings.shape[1], 1), self.task2id[self.current_task])
+        output = self.encoder(embeddings, mask, mem_tokens=task_tensor)
     else:
         output = self.encoder(embeddings, mask)
     if type(output) == tuple:

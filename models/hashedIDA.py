@@ -46,8 +46,8 @@ class HashedMemoryRNN(EncoderRNN):
                                               dropout=dropout, base_rnn=base_rnn,
                                               bidirectional=bidirectional, batch_first=batch_first)
         self.acc_slots = 3
-        self.memory_embeddings = memmory_embed
-        self.hh = [Hash(self.memory_embeddings.get_output_dim(), self.mem_size) for _ in range(self.acc_slots)]
+        self.memory_embeddings = torch.nn.Linear(1, 100)
+        self.hh = [Hash(100, self.mem_size) for _ in range(self.acc_slots)]
         self.lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(e_dim + mem_size, h_dim,
                                               num_layers=num_layers,
                                               dropout=dropout,
