@@ -120,7 +120,7 @@ def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath, args):
         for key, (steps, wall_times, values) in all_per_key.items():
             aggregations = [op(values, axis=0) for op in aggregation_ops]
             agg_final = {}
-            print("This is tracking , : ", key, steps, list(aggregations[0]))
+            print("This is tracking , : ", key, steps, aggregations, values)
             for step, agg in zip(steps, list(aggregations[0])):
                 agg_final['step_' + str(step)] = agg
 
