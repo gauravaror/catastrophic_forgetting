@@ -70,10 +70,11 @@ class EncoderRNN(nn.Module):
         alpha_tilda = torch.cat(key_representations, dim=1)
 
         # Normalize the key representation like softmax, calculate the sum over all memory keys.
-        alpha_sum = torch.sum(alpha_tilda, dim = 1).view(-1, 1) # batch x 1
+        #alpha_sum = torch.sum(alpha_tilda, dim = 1).view(-1, 1) # batch x 1
 
         mem_context_arr = []
         for k,mem_val in zip(key_representations, mem_v):
+            alpha_sum = torch.sum(k, dim = 1).view(-1, 1) # batch x 1
             key_softmaxed = torch.div(k, alpha_sum.expand(k.size()))
             mem_context_arr.append(mem_val(key_softmaxed))
         mem_context = torch.stack(mem_context_arr, dim=0).sum(dim=0)
