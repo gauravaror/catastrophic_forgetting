@@ -77,7 +77,7 @@ class MajorityClassifier(Model):
   
 @Model.register("main_classifier")
 class MainClassifier(Model):
-  def __init__(self, word_embeddings: TextFieldEmbedder, encoder: Seq2VecEncoder, vocab: Vocabulary) -> None:
+  def __init__(self, word_embeddings: TextFieldEmbedder, encoder: Seq2VecEncoder, vocab: Vocabulary, inv_temp: float = None, temp_inc:float = None) -> None:
     super().__init__(vocab)
     self.word_embeddings = word_embeddings
     self.encoder = encoder
@@ -92,6 +92,8 @@ class MainClassifier(Model):
     self.average  = Average()
     self.activations = []
     self.labels = []
+    self.inv_temp = inv_temp
+    self.temp_inc = temp_inc
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
     self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
@@ -99,15 +101,19 @@ class MainClassifier(Model):
     self.task2id[task_tag] = self.num_task
     self.tasks_vocabulary[task_tag] = vocab
 
-  def set_task(self, task_tag: str):
+  def set_task(self, task_tag: str, training: bool = False):
     #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.current_task = task_tag
     self.vocab = self.tasks_vocabulary[task_tag]
+    if training and self.temp_inc:
+        self.inv_temp = self.temp_inc*self.inv_temp
 
   def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
     hidden2tag = self.classification_layers[self.task2id[self.current_task]]
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
+    if self.inv_temp:
+        embeddings = self.inv_temp*embeddings
     if type(self.encoder) == HashedMemoryRNN:
         tensor = torch.ones((2,))
         task_tensor = tensor.new_full((embeddings.shape[0], embeddings.shape[1], 1), self.task2id[self.current_task])
