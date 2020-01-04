@@ -66,7 +66,10 @@ class EncoderRNN(nn.Module):
     def access_memory(self, hidden, mem_k, mem_v):
         key_representations = []
         for i,mem_key in enumerate(mem_k):
-              key_representations.append(torch.exp(self.inv_temp*mem_key(hidden.squeeze(0))))
+              mem_rep = mem_key(hidden.squeeze(0))
+              if self.inv_temp:
+                  mem_rep = mem_rep*self.inv_temp
+              key_representations.append(torch.exp(mem_rep))
         alpha_tilda = torch.cat(key_representations, dim=1)
 
         # Normalize the key representation like softmax, calculate the sum over all memory keys.
