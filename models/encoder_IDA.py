@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from models.utils import BernoulliST
 
 USE_CUDA = torch.cuda.is_available()
 
@@ -47,6 +47,7 @@ class EncoderRNN(nn.Module):
         self.M_k_bkwd = nn.ModuleList()
         self.M_v_bkwd = nn.ModuleList()
         self.add_target_pad(self.mem_size)
+        self.binarizer = BernoulliST
 
     def get_output_dim(self):
         return 2*self.hidden_size
@@ -79,6 +80,7 @@ class EncoderRNN(nn.Module):
         for k,mem_val in zip(key_representations, mem_v):
             alpha_sum = torch.sum(k, dim = 1).view(-1, 1) # batch x 1
             key_softmaxed = torch.div(k, alpha_sum.expand(k.size()))
+            key_softmaxed = self.binarizer(key_softmaxed)
             mem_context_arr.append(mem_val(key_softmaxed))
         mem_context = torch.stack(mem_context_arr, dim=0).sum(dim=0)
         if USE_CUDA:
