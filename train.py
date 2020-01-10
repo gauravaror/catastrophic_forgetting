@@ -55,8 +55,14 @@ parser.add_argument('--few_shot', action='store_true', help="Train task on few s
 parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
 parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
 parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
+
+# CNN Params
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
 parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
+parser.add_argument('--ngram_filter', type=int, default=2, help="Ngram filter size to send in")
+parser.add_argument('--stride', type=int, default=1, help="Strides to use for CNN")
+
+
 parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
 parser.add_argument('--layers', type=int, default=1, help="Number of layers")
 parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
@@ -156,7 +162,7 @@ if args.few_shot:
   task_code += ('_evaluate_' + evaluate_code)
 
 ## Define Run Name and args to tensorboard for tracking.
-run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_code_"+task_code+"/run_"+str(args.tryno)
+run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(args.h_dim)+"_stride_"+str(args.stride)+"_ngram_"+str(args.ngram_filter)+"_code_"+task_code+"/run_"+str(args.tryno)
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
@@ -170,10 +176,12 @@ print("CNN",args.cnn)
 if args.cnn:
   experiment="cnn_"
   experiment += args.pooling
-  ngrams_f=(2,)
+  ngrams_f=(args.ngram_filter,)
+  strides=(args.stride,)
   cnn = CnnEncoder(embedding_dim=word_embeddings.get_output_dim(),
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
+		   strides=strides,
 		   num_filters=args.h_dim,
                    pooling=args.pooling)
   if args.pyramid:

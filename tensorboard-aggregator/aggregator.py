@@ -113,8 +113,10 @@ def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath, args):
     sub_parts = fullname.split('__')
     exper = sub_parts[0]
     main_sub_parts = sub_parts[1].split('_')
-    layer = main_sub_parts[0]
-    hdim = main_sub_parts[2]
+    layer = main_sub_parts[1]
+    hdim = main_sub_parts[3]
+    stride = main_sub_parts[5]
+    ngram = main_sub_parts[7]
     code = sub_parts[2]
     for subpath, all_per_key in extracts_per_subpath.items():
         for key, (steps, wall_times, values) in all_per_key.items():
@@ -127,6 +129,8 @@ def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath, args):
             agg_final['exper'] = exper
             agg_final['layer'] = layer
             agg_final['hdim'] = hdim
+            agg_final['stride'] = stride
+            agg_final['ngram'] = ngram
             agg_final['code'] = code
             print("Steps things, ", agg_final)
 

@@ -48,6 +48,7 @@ class CnnEncoder(Seq2VecEncoder):
                  num_filters: int,
                  num_layers: int,
                  ngram_filter_sizes: Tuple[int, ...] = (2, 3, 4, 5),  # pylint: disable=bad-whitespace
+                 strides: Tuple[int, ...] = (1, 1, 1, 1),  # pylint: disable=bad-whitespace
                  conv_layer_activation: Activation = None,
                  output_dim: Optional[int] = None,
                  pooling: str = 'max') -> None:
@@ -57,18 +58,21 @@ class CnnEncoder(Seq2VecEncoder):
         self._num_filters = num_filters
         self._num_layers = num_layers
         self._ngram_filter_sizes = ngram_filter_sizes
+        self._strides = strides
         self._activation = conv_layer_activation or Activation.by_name('relu')()
         self._output_dim = output_dim
         self._convolution_layers = [Conv1d(in_channels=self._embedding_dim,
                                            out_channels=self._num_filters,
-                                           kernel_size=ngram_size)
-                                    for ngram_size in self._ngram_filter_sizes]
+                                           kernel_size=ngram_size,
+					   stride=stride_size)
+                                    for stride_size,ngram_size in zip(self._strides,self._ngram_filter_sizes)]
         self._convolution_layers2 = []
         for i in range(self._num_layers-1):
             self._convolution_layers2.append([Conv1d(in_channels=self._num_filters,
                                                 out_channels=self._num_filters,
-                                                kernel_size=ngram_size)
-                                            for ngram_size in self._ngram_filter_sizes])
+                                                kernel_size=ngram_size,
+						stride=stride_size)
+                                            for stride_size,ngram_size in zip(self._strides,self._ngram_filter_sizes)])
         for i, conv_layer in enumerate(self._convolution_layers):
             self.add_module('conv_layer_%d' % i, conv_layer)
         for l in range(self._num_layers-1):
