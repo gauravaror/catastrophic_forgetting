@@ -40,7 +40,7 @@ def get_optimizer(opt, parameters, lr_, wdecay):
 def load_dataset(code, train_data, dev_data, few_data, embeddings='default'):
   if code == "sst_2c":
     # Sentiment task 2 class
-    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class", embeddings=embeddding)
+    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class", embeddings=embeddings)
     train_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/train.txt')
     dev_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/dev.txt')
     few_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/few.txt')
