@@ -33,7 +33,7 @@ class Hash:
             self.coef = self.coef.cuda()
 
     def hash(self, inp, rang):
-        return torch.softmax(inp@self.coef, inp.dim()-1)
+        return torch.Softmax(inp@self.coef, inp.dim()-1)
 
 class HashedMemoryRNN(EncoderRNN):
 
@@ -45,21 +45,32 @@ class HashedMemoryRNN(EncoderRNN):
                                               inv_temp=inv_temp, num_layers=num_layers,
                                               dropout=dropout, base_rnn=base_rnn,
                                               bidirectional=bidirectional, batch_first=batch_first)
-        self.acc_slots = 3
+        self.acc_slots = 10
         self.memory_embeddings = memmory_embed
-        self.hh = [Hash(self.memory_embeddings.get_output_dim(), self.mem_size) for _ in range(self.acc_slots)]
+        #self.hh = [Hash(self.memory_embeddings.get_output_dim(), self.mem_size) for _ in range(self.acc_slots)]
         self.lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(e_dim + mem_size, h_dim,
                                               num_layers=num_layers,
                                               dropout=dropout,
                                               bidirectional=bidirectional,
                                               batch_first=batch_first))
+        self.memory = nn.Linear(self.memory_embeddings.get_output_dim(), self.mem_size)
+        self.softmax = torch.nn.Softmax()
+        if USE_CUDA:
+            self.lstm = self.lstm.cuda()
+            self.memory = self.memory.cuda()
 
     def get_output_dim(self):
         return self.hidden_size
 
     def access_memory(self, embedded : torch.Tensor, mem_v: nn.Linear):
-        accessd_mem = torch.sum(torch.stack([hfn.hash(embedded, self.mem_size) for hfn in self.hh], embedded.dim()-1), embedded.dim()-1)
+        #accessd_mem = torch.sum(torch.stack([hfn.hash(embedded, self.mem_size) for hfn in self.hh], embedded.dim()-1), embedded.dim()-1)
+        accessd_mem = self.memory(embedded)
+        if USE_CUDA:
+            accessd_mem = accessd_mem.cuda()
+        accessd_mem = self.softmax(accessd_mem)
         memory_context = mem_v(accessd_mem)
+        if USE_CUDA:
+            memory_context = memory_context.cuda()
         return memory_context
         
     def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None, mem_tokens=None):
@@ -68,6 +79,7 @@ class HashedMemoryRNN(EncoderRNN):
         #mem_embeddings = mem_embeddings.permute(1,0,2)
         max_input_length, batch_size,  _ = input_seqs.size()
         memory_context = self.access_memory(mem_embeddings, self.M_v_fwd[0])
+        #print("Memory context " , memory_context.shape, memory_context[0][0])
         input_seq = torch.cat((input_seqs, memory_context), 2)
         return self.lstm(input_seq, input_lengths), []
 
