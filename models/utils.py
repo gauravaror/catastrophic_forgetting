@@ -197,18 +197,26 @@ def get_catastrophic_metric(tasks, metrics):
      for i,task in enumerate(tasks[:-1]):
         # Calculate forgetting between first trained and last trained task
         current_forgetting = (metrics[tasks[i]][tasks[i]] - metrics[tasks[i]][last_task])
-        # Normalize it by it's value.
-        #use_metric = metrics[tasks[i]][tasks[i]]
-        #if abs(use_metric) == 0:
-        #    use_metric = 1
-        #current_forgetting = current_forgetting/abs(use_metric)
-        #print(f'Got forgetting for task {task} :  {current_forgetting}')
-        # This finds number of tasks trained after current task.
-        # This is to find expected loss per trained class.
+        # Normalize it by it's initial value.
+        use_metric = metrics[tasks[i]][tasks[i]]
+        if abs(use_metric) == 0:
+            # Since use_metric initial learning is at best majority class classifier
+            # Hence it's network couldn't learn this task. Make the forgetting highest in this case
+            # As Network doesn't have the ability to learn the task now.
+            current_forgetting = 1
+        else:
+            # Calculate the percentage drop This adds the account for % drop and also account if network hasn't learned
+            # anything as then value divided is closer to 1 and forgetting increases exponentially and results in highest forgetting.
+            # Since we couldn't learn anything.
+            current_forgetting = current_forgetting/abs(use_metric)
+        # Catastrophic forgetting is always betwen 0 and 1.
+        # If out metric is negative then We improved the performance, hence set the forgetting to zero.
+        # If network has forgetting greater than 1, Which is when performance is closer to majority class classifier.
+        # Then set it to maximum forgetting i.e 1.
         if current_forgetting < 0:
             current_forgetting = 0
-            #forgetting_metrics[tasks[i]] = current_forgetting
-            #continue
+        elif current_forgetting > 1:
+            current_forgetting = 1
         number_training_steps = (len(tasks) - i - 1)
         forgetting_metrics["1_step"] += (current_forgetting / number_training_steps)
         forgetting_metrics["total"] += current_forgetting
