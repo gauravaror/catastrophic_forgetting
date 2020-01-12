@@ -89,6 +89,7 @@ parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_
 parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
 parser.add_argument('--mem_context_size', help="Memory output size", type=int, default=512)
 parser.add_argument('--use_memory', action='store_true', help="Weather to use memory are not")
+parser.add_argument('--use_binary', action='store_true', help="Make the memory access binary")
 parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
 parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
@@ -241,7 +242,8 @@ elif args.seq2vec or args.majority:
                       dropout=args.dropout,
                       use_memory=args.use_memory,
                       mem_size=args.mem_size,
-                      mem_context_size=args.mem_context_size)
+                      mem_context_size=args.mem_context_size,
+                      use_binary=args.use_binary)
   model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc)
   if args.majority:
     model = MajorityClassifier(vocab)

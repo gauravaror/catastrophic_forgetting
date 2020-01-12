@@ -12,7 +12,7 @@ class TransformerRepresentation(nn.Module):
 
     def __init__(self, emb_dim, nhead, nhid, nlayers, dropout=0.5,
                  use_memory=False, mem_size=None, mem_context_size=None,
-                 inv_temp=None):
+                 inv_temp=None, use_binary=False):
         super(TransformerRepresentation, self).__init__()
         self.model_type = 'Transformer'
         self.emb_dim = emb_dim
@@ -21,7 +21,8 @@ class TransformerRepresentation(nn.Module):
                                      emb_dim=self.emb_dim,
                                      mem_size=mem_size,
                                      mem_context_size=mem_context_size,
-                                     inv_temp=self.inv_temp)
+                                     inv_temp=self.inv_temp,
+                                     use_binary=use_binary)
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(emb_dim, dropout)
         encoder_layers = TransformerEncoderLayer(self.emb_dim,

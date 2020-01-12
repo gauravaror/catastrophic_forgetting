@@ -1,15 +1,18 @@
 import torch
 import torch.nn as nn
+from models.utils import Hardsigmoid, BernoulliST
 
 USE_CUDA = torch.cuda.is_available()
 
 class KeyValueMemory(nn.Module):
 
     def __init__(self, use_memory=False, emb_dim=128, mem_size=None,
-                 mem_context_size=None, bidirectional=False, inv_temp=None):
+                 mem_context_size=None, bidirectional=False,
+                 inv_temp=None, use_binary=False):
         super(KeyValueMemory, self).__init__()
         self.use_memory = use_memory
         self.inv_temp = inv_temp
+        self.use_binary = use_binary
 
         if self.use_memory and (mem_size == None or mem_context_size == None):
             raise Exception("Use of memory is enabled and mem_size and mem_context are not passed")
@@ -23,8 +26,13 @@ class KeyValueMemory(nn.Module):
         if self.bidirectional:
             self.M_k_bkwd = nn.ModuleList()
             self.M_v_bkwd = nn.ModuleList()
+
         if self.use_memory:
             self.add_target_pad()
+
+        if self.use_binary:
+            self.sigmoid = Hardsigmoid()
+            self.binarizer = BernoulliST
 
     def add_target_pad(self):
         self.M_k_fwd.append(nn.Linear(self.emb_dim, self.mem_size, bias=False))
@@ -56,6 +64,8 @@ class KeyValueMemory(nn.Module):
         mem_context_arr = []
         for k,mem_val in zip(key_representations, mem_v):
             key_softmaxed = torch.div(k, alpha_sum.expand(k.size()))
+            if self.use_binary:
+                key_softmaxed = self.binarizer(self.sigmoid(key_softmaxed))
             mem_context_arr.append(mem_val(key_softmaxed))
         mem_context = torch.stack(mem_context_arr).sum(dim=0)
         if USE_CUDA:
