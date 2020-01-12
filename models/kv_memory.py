@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.utils import Hardsigmoid, BernoulliST
+from models.utils import Hardsigmoid, BernoulliST, RoundST
 
 USE_CUDA = torch.cuda.is_available()
 
@@ -27,26 +27,26 @@ class KeyValueMemory(nn.Module):
             self.M_k_bkwd = nn.ModuleList()
             self.M_v_bkwd = nn.ModuleList()
 
-        if self.use_memory:
-            self.add_target_pad()
+        self.add_target_pad()
 
         if self.use_binary:
             self.sigmoid = Hardsigmoid()
-            self.binarizer = BernoulliST
+            self.binarizer = RoundST
 
     def add_target_pad(self):
-        self.M_k_fwd.append(nn.Linear(self.emb_dim, self.mem_size, bias=False))
-        self.M_v_fwd.append(nn.Linear(self.mem_size, self.mem_context_size, bias=False))
-        if self.bidirectional:
-            self.M_k_bkwd.append(nn.Linear(self.emb_dim, self.mem_size, bias=False))
-            self.M_v_bkwd.append(nn.Linear(self.mem_size, self.mem_context_size, bias=False))
-
-        if USE_CUDA:
-            self.M_k_fwd.cuda()
-            self.M_v_fwd.cuda()
+        if self.use_memory:
+            self.M_k_fwd.append(nn.Linear(self.emb_dim, self.mem_size, bias=False))
+            self.M_v_fwd.append(nn.Linear(self.mem_size, self.mem_context_size, bias=False))
             if self.bidirectional:
-                self.M_k_bkwd.cuda()
-                self.M_v_bkwd.cuda()
+                self.M_k_bkwd.append(nn.Linear(self.emb_dim, self.mem_size, bias=False))
+                self.M_v_bkwd.append(nn.Linear(self.mem_size, self.mem_context_size, bias=False))
+
+            if USE_CUDA:
+                self.M_k_fwd.cuda()
+                self.M_v_fwd.cuda()
+                if self.bidirectional:
+                    self.M_k_bkwd.cuda()
+                    self.M_v_bkwd.cuda()
 
     def access_memory(self, hidden, mem_k, mem_v):
         key_representations = []

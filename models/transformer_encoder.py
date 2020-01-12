@@ -25,8 +25,7 @@ class TransformerRepresentation(nn.Module):
                                      use_binary=use_binary)
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(emb_dim, dropout)
-        encoder_layers = TransformerEncoderLayer(self.emb_dim,
-                                                 #self.memory.get_input_size(),
+        encoder_layers = TransformerEncoderLayer(self.memory.get_input_size(),
                                                  nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
@@ -35,10 +34,12 @@ class TransformerRepresentation(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
+    def add_target_pad(self):
+        self.memory.add_target_pad()
+
     def get_output_dim(self):
         ## Transformer input size is same as output
-        #return self.memory.get_input_size()
-        return self.emb_dim
+        return self.memory.get_input_size()
 
     def forward(self, src, mask):
         if self.src_mask is None or self.src_mask.size(0) != len(src):
@@ -49,7 +50,7 @@ class TransformerRepresentation(nn.Module):
         src = src * math.sqrt(self.emb_dim)
         src = self.pos_encoder(src)
         src_input = self.memory(src)
-        output = self.transformer_encoder(src, self.src_mask)
+        output = self.transformer_encoder(src_input, self.src_mask)
         return torch.mean(output, dim=1)
 
 class PositionalEncoding(nn.Module):

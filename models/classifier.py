@@ -93,6 +93,9 @@ class MainClassifier(Model):
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
 
+  def add_target_padding(self):
+     self.encoder.add_target_padding()
+
   def add_task(self, task_tag: str, vocab: Vocabulary):
     self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
     self.num_task = self.num_task + 1

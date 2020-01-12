@@ -86,10 +86,14 @@ parser.add_argument('--transformer', help="Use transformer unit",action='store_t
 parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
+
+## Memory related options
 parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
 parser.add_argument('--mem_context_size', help="Memory output size", type=int, default=512)
 parser.add_argument('--use_memory', action='store_true', help="Weather to use memory are not")
 parser.add_argument('--use_binary', action='store_true', help="Make the memory access binary")
+parser.add_argument('--pad_memory', action='store_true', help="Pad the Memory after training each task")
+
 parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
 parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
 parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
@@ -318,8 +322,8 @@ else:
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.diff_class:
-      if args.IDA:
-          model.encoder.add_target_pad(args.mem_size)
+      if args.pad_memory:
+          model.encoder.add_target_pad()
       training_ = True if i != 1 else False
       model.set_task(i, training=training_)
       trainer._num_epochs = args.epochs

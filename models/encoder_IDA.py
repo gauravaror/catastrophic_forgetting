@@ -46,16 +46,16 @@ class EncoderRNN(nn.Module):
         self.M_v_fwd = nn.ModuleList()
         self.M_k_bkwd = nn.ModuleList()
         self.M_v_bkwd = nn.ModuleList()
-        self.add_target_pad(self.mem_size)
+        self.add_target_pad()
 
     def get_output_dim(self):
         return 2*self.hidden_size
        
-    def add_target_pad(self, mem_size):
-        self.M_k_fwd.append(nn.Linear(self.hidden_size, mem_size, bias=False))
-        self.M_v_fwd.append(nn.Linear(mem_size, self.mem_context_size, bias=False))
-        self.M_k_bkwd.append(nn.Linear(self.hidden_size, mem_size, bias=False))
-        self.M_v_bkwd.append(nn.Linear(mem_size, self.mem_context_size, bias=False))
+    def add_target_pad(self):
+        self.M_k_fwd.append(nn.Linear(self.hidden_size, self.mem_size, bias=False))
+        self.M_v_fwd.append(nn.Linear(self.mem_size, self.mem_context_size, bias=False))
+        self.M_k_bkwd.append(nn.Linear(self.hidden_size, self.mem_size, bias=False))
+        self.M_v_bkwd.append(nn.Linear(self.mem_size, self.mem_context_size, bias=False))
 
         if USE_CUDA:
             self.M_k_fwd.cuda()
