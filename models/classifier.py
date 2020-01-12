@@ -64,9 +64,7 @@ class MajorityClassifier(Model):
    #print("Going foward , do we have labels", label)
    if label is not None:
      _, preds = logi.max(dim=1)
-     print(label, preds, matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
      self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
-     print("mathew majority ", self.average.get_metric())
      self.accuracy(logi, label)
      output["loss"] = torch.tensor([0])
    return output
