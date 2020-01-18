@@ -266,7 +266,7 @@ else:
 print("Running Experiment " , experiment)
 
 if not args.no_save_weight:
-    save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier)
+    save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier, tasks=train)
 
 for i in tasks:
   model.add_task(i, vocabulary[i])
@@ -442,7 +442,8 @@ else:
 					    c_standard_metric[task],
 					    timestep=tid)
   if not args.no_save_weight:
-      save_weight.write_activations(overall_metrics, trainer, tasks)
+      #save_weight.write_activations(overall_metrics, trainer, tasks)
+      save_weight.get_task_tsne(trainer)
 
   trainer._tensorboard._train_log.close()
 

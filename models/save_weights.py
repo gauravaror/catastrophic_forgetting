@@ -13,7 +13,7 @@ import numpy as np
 
 class SaveWeights:
 
-  def __init__(self, encoder_, layer, hdim, code, labels_mapping, mean):
+  def __init__(self, encoder_, layer, hdim, code, labels_mapping, mean, tasks=None):
     self.encoder_type = encoder_
     self.tryno=1
     self.activations={}
@@ -23,6 +23,7 @@ class SaveWeights:
     self.hdim=hdim
     self.code=code
     self.labels_map = labels_mapping
+    self.tasks = tasks
 
     # Stuff to make mean classifier show up on tsne plots
     self.mean_classifier = mean
@@ -42,6 +43,26 @@ class SaveWeights:
     self.activations[train][evaluated], self.labels[train][evaluated] = model.get_activations()
     if self.mean_classifier:
         self.mean_representation[train][evaluated], self.encoder_representation[train][evaluated] = model.get_mean_representation()
+
+  def get_task_tsne(self, trainer):
+      if not self.tasks:
+          raise Exception("Tasks not provided for task tsne")
+      last_task = self.tasks[-1]
+      activs = []
+      labels = []
+      labels_map = {}
+      for idx,i in enumerate(self.activations[last_task]):
+          temp_rep = self.get_arr_rep(self.activations[last_task][i], i)
+          activs.append(temp_rep)
+          labels.extend([idx]*len(temp_rep))
+          labels_map[idx] = i
+      activations = torch.cat(activs, dim=0)
+      #merged_labels = [torch.Tensor(len(i)).fill_(idx) for idx,i in enumerate(self.activations[last_task])]
+      #labels = torch.cat( merged_labels, dim=0)
+      #label_mapping = None
+      plot = utils.run_tsne_embeddings(activations,labels, labels_map = labels_map)
+      label_figure  = "task_tsne_embeddings/" + str(last_task)
+      trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 
   def get_zero_weights(self, activations):
 
@@ -124,11 +145,9 @@ class SaveWeights:
               if self.mean_classifier:
                       this_mean = self.mean_representation[task][evalua][evalua]
                       this_encoder = self.encoder_representation[task][evalua].cpu().numpy()
-                      plot = utils.run_tsne_embeddings(this_encoder, this_label, task, evalua,
-                                                       lay, gram, self.labels_map, this_mean)
+                      plot = utils.run_tsne_embeddings(this_encoder, this_label, self.labels_map[evalua], this_mean, task=False)
               else:
-                      plot = utils.run_tsne_embeddings(current_activation, this_label, task,
-                                                       evalua, 0, 0, self.labels_map)
+                      plot = utils.run_tsne_embeddings(this_encoder, this_label, self.labels_map[evalua], task=False)
               label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
               trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 

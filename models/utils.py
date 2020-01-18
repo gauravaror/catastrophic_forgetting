@@ -147,7 +147,7 @@ def gen_plot(plt):
     image = ToTensor()(image).unsqueeze(0)
     return image
 
-def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, gram, labels_map, mean = None):
+def run_tsne_embeddings(data_view_tsne, labels_orig, labels_map = None, mean = None, task=True):
   plt.clf()
   tsne_model = TSNE(n_components=2, perplexity=30.0)
   tnse_embedding = tsne_model.fit_transform(data_view_tsne)
@@ -172,17 +172,21 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, train, evaluate, getlayer, 
       axes[len(mean_keys)].plot(tnse_embedding[i][0], tnse_embedding[i][1], mean_color[mean_keys[i - len(data_view_tsne)]])
   else:
     plot_dim = len(set(labels_orig))
-    print("Printing labels for ", plot_dim)
+    if task:
+        plot_dim = 1
     fig, axes = plt.subplots(plot_dim,1, sharex='row')
 
-  task_label = labels_map[evaluate]
+  task_label = None
   for i in range(0, len(data_view_tsne)):
     if labels_orig[i] in legend_tracker:
-      axes[labels_orig[i]].plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]], label=task_label[labels_orig[i]])
-      axes[labels_orig[i]].legend(loc='upper right')
+      label_ = labels_orig[i]
+      if labels_map:
+          label_ = labels_map[labels_orig[i]]
+      axes.plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]], label=label_)
+      axes.legend(loc='upper right')
       legend_tracker.pop(labels_orig[i])
     else:
-      axes[labels_orig[i]].plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]])
+      axes.plot(tnse_embedding[i][0], tnse_embedding[i][1], index_color[labels_orig[i]])
   plt.legend()
   image_plot = gen_plot(plt)
   plt.close('all')
