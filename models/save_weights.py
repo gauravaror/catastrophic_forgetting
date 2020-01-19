@@ -57,7 +57,7 @@ class SaveWeights:
           labels.extend([idx]*len(temp_rep))
           labels_map[idx] = i
 
-      activations = torch.cat(activs, dim=-1)
+      activations = torch.cat(activs, dim=0)
       #merged_labels = [torch.Tensor(len(i)).fill_(idx) for idx,i in enumerate(self.activations[last_task])]
       #labels = torch.cat( merged_labels, dim=0)
       #label_mapping = None
@@ -98,12 +98,12 @@ class SaveWeights:
     test_instances = {'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
     if self.encoder_type.startswith('cnn'):
       new_representation = torch.cat(data, dim=2)
-      samples, filters, gram = new_representation.shape
-      new_representation =  new_representation.reshape(filters, samples*gram)
+      new_representation = new_representation.mean(dim=2)
+      #samples, filters, gram = new_representation.shape
+      #new_representation =  new_representation.reshape(samples, filters*gram)
       new_representation = utils.torch_remove_neg(new_representation)
       return new_representation
     elif self.encoder_type.startswith('lstm'):
-      print("Shape of tensors ", data.shape)
       data = data.to('cpu').detach()
       if data.shape[1] < data.shape[0]:
           data = data.reshape(data.shape[1], data.shape[0])
