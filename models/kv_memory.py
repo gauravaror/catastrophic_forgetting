@@ -78,15 +78,17 @@ class KeyValueMemory(nn.Module):
         else:
             return self.emb_dim
 
-    def forward(self, input_embedding, fwd=True):
+    def forward(self, input_embedding, fwd=True, access_embedding=None):
+        if not access_embedding ==  None:
+            access_embedding = input_embedding
         if not self.use_memory:
             return input_embedding
         if fwd:
-            memory_context =  self.access_memory(input_embedding, self.M_k_fwd, self.M_v_fwd)
+            memory_context =  self.access_memory(access_embedding, self.M_k_fwd, self.M_v_fwd)
             src_input = torch.cat((input_embedding, memory_context), input_embedding.dim()-1)
             return src_input
         elif self.bidirectional:
-            memory_context = self.access_memory(input_embedding, self.M_k_bkwd, self.M_v_bkwd)
+            memory_context = self.access_memory(access_embedding, self.M_k_bkwd, self.M_v_bkwd)
             src_input = torch.cat((input_embedding, memory_context), input_embedding.dim()-1)
             return src_input
         else:
