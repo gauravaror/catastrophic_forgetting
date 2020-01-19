@@ -79,7 +79,7 @@ class KeyValueMemory(nn.Module):
             return self.emb_dim
 
     def forward(self, input_embedding, fwd=True, access_embedding=None):
-        if not access_embedding ==  None:
+        if not (access_embedding is None):
             access_embedding = input_embedding
         if not self.use_memory:
             return input_embedding

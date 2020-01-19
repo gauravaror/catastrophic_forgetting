@@ -53,6 +53,7 @@ class SaveWeights:
       labels_map = {}
       for idx,i in enumerate(self.activations[last_task]):
           temp_rep = self.get_arr_rep(self.activations[last_task][i], i)
+          temp_rep = temp_rep.cpu()
           activs.append(temp_rep)
           labels.extend([idx]*len(temp_rep))
           labels_map[idx] = i
