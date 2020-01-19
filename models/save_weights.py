@@ -56,7 +56,8 @@ class SaveWeights:
           activs.append(temp_rep)
           labels.extend([idx]*len(temp_rep))
           labels_map[idx] = i
-      activations = torch.cat(activs, dim=0)
+
+      activations = torch.cat(activs, dim=-1)
       #merged_labels = [torch.Tensor(len(i)).fill_(idx) for idx,i in enumerate(self.activations[last_task])]
       #labels = torch.cat( merged_labels, dim=0)
       #label_mapping = None
@@ -108,6 +109,10 @@ class SaveWeights:
           data = data.reshape(data.shape[1], data.shape[0])
       data = utils.torch_remove_neg(data)
       return data
+    elif self.encoder_type.startswith('embedding_access_memory'):
+        return data
+    elif self.encoder_type.startswith('transformer'):
+        return data
 #.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):

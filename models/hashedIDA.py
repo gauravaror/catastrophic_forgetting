@@ -75,4 +75,4 @@ class HashedMemoryRNN(nn.Module):
     def forward(self, input_seqs, input_lengths, hidden_f=None, hidden_b=None, mem_tokens=None):
         max_input_length, batch_size,  _ = input_seqs.size()
         input_seq = self.memory(input_seqs)
-        return self.lstm(input_seq, input_lengths), []
+        return self.lstm(input_seq, input_lengths)
