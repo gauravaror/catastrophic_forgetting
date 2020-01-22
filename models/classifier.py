@@ -19,6 +19,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
+from models.task_encoding import TaskEncoding
 
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda
@@ -75,7 +76,9 @@ class MajorityClassifier(Model):
   
 @Model.register("main_classifier")
 class MainClassifier(Model):
-  def __init__(self, word_embeddings: TextFieldEmbedder, encoder: Seq2VecEncoder, vocab: Vocabulary, inv_temp: float = None, temp_inc:float = None) -> None:
+  def __init__(self, word_embeddings: TextFieldEmbedder, encoder: Seq2VecEncoder,
+               vocab: Vocabulary, inv_temp: float = None,
+               temp_inc:float = None, task_embed = None) -> None:
     super().__init__(vocab)
     self.word_embeddings = word_embeddings
     self.encoder = encoder
@@ -92,6 +95,7 @@ class MainClassifier(Model):
     self.labels = []
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
+    self.task_encoder = TaskEncoding(self.word_embeddings.get_output_dim()) if task_embed else None
 
   def add_target_padding(self):
      self.encoder.add_target_padding()
@@ -109,10 +113,15 @@ class MainClassifier(Model):
     if training and self.temp_inc:
         self.inv_temp = self.temp_inc*self.inv_temp
 
+  def get_current_taskid(self):
+      return self.task2id[self.current_task]
+
   def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
-    hidden2tag = self.classification_layers[self.task2id[self.current_task]]
+    hidden2tag = self.classification_layers[self.get_current_taskid()]
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
+    if self.task_encoder:
+        embeddings = self.task_encoder(embeddings, self.get_current_taskid())
     if self.inv_temp:
         embeddings = self.inv_temp*embeddings
     if type(self.encoder) == HashedMemoryRNN:

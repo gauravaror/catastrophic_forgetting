@@ -86,6 +86,7 @@ parser.add_argument('--transformer', help="Use transformer unit",action='store_t
 parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
+parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
 
 ## Memory related options
 parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
@@ -93,6 +94,7 @@ parser.add_argument('--mem_context_size', help="Memory output size", type=int, d
 parser.add_argument('--use_memory', action='store_true', help="Weather to use memory are not")
 parser.add_argument('--use_binary', action='store_true', help="Make the memory access binary")
 parser.add_argument('--pad_memory', action='store_true', help="Pad the Memory after training each task")
+
 
 parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
 parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
@@ -199,7 +201,7 @@ if args.cnn:
                        num_layers=args.layers,
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
-  model = MainClassifier(word_embeddings, cnn, vocab)
+  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed)
   if args.mean_classifier:
     print("We are on journey to use the mean classifier now.")
     model = MeanClassifier(word_embeddings, cnn, vocab)
@@ -248,7 +250,7 @@ elif args.seq2vec or args.majority:
                       mem_size=args.mem_size,
                       mem_context_size=args.mem_context_size,
                       use_binary=args.use_binary)
-  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc)
+  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc, task_embed=args.task_embed)
   if args.majority:
     model = MajorityClassifier(vocab)
 else:
