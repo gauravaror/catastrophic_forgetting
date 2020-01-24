@@ -120,11 +120,15 @@ def aggregate_to_csv(dpath, aggregation_ops, extracts_per_subpath, args):
     code = sub_parts[2]
     for subpath, all_per_key in extracts_per_subpath.items():
         for key, (steps, wall_times, values) in all_per_key.items():
-            aggregations = [op(values, axis=0) for op in aggregation_ops]
             agg_final = {}
-            print("This is tracking , : ", key, steps, aggregations, values)
-            for step, agg in zip(steps, list(aggregations[0])):
-                agg_final['step_' + str(step)] = agg
+            aggregations = []
+            print("This is tracking , : ", key, steps, values)
+            for op in aggregation_ops:
+                op_name = op.__name__
+                agg_values = list(op(values, axis=0))
+                aggregations.append(agg_values)
+                for step, agg in zip(steps, agg_values):
+                    agg_final['step_' + str(step) + '_' + op_name ] = agg
 
             agg_final['exper'] = exper
             agg_final['layer'] = layer
@@ -183,11 +187,9 @@ def aggregate(dpath, args):
 
     if args.operations:
         ## TODO: Convert from operations in string to actual np operations
-        aggregation_ops = args.operations
         aggregation_ops = [np.mean]
     else:
         aggregation_ops = [np.mean, np.min, np.max, np.median, np.std, np.var]
-        aggregation_ops = args.operations
 
     ops = {
         'summary': aggregate_to_summary,
