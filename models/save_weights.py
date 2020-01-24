@@ -50,19 +50,22 @@ class SaveWeights:
       last_task = self.tasks[-1]
       activs = []
       labels = []
+      internal_labels = []
       labels_map = {}
       for idx,i in enumerate(self.activations[last_task]):
           temp_rep = self.get_arr_rep(self.activations[last_task][i], i)
           temp_rep = temp_rep.cpu()
           activs.append(temp_rep)
+          internal_labels.append(self.labels[last_task][i])
           labels.extend([idx]*len(temp_rep))
           labels_map[idx] = i
 
       activations = torch.cat(activs, dim=0)
+      marker_labels = torch.cat(internal_labels, dim=0).cpu().numpy()
       #merged_labels = [torch.Tensor(len(i)).fill_(idx) for idx,i in enumerate(self.activations[last_task])]
       #labels = torch.cat( merged_labels, dim=0)
       #label_mapping = None
-      plot = utils.run_tsne_embeddings(activations,labels, labels_map = labels_map)
+      plot = utils.run_tsne_embeddings(activations,labels, labels_map = labels_map, mlabels=marker_labels)
       label_figure  = "task_tsne_embeddings/" + str(last_task)
       trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
 
