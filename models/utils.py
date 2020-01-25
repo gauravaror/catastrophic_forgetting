@@ -155,7 +155,8 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, labels_map = None, mean = N
   plain_color = {0: 'b', 1: 'g', 2: 'r', 3: 'c', 4: 'm', 5: 'y'}
   legend_tracker = {0: 'b.', 1: 'g.', 2: 'r.', 3: 'c.', 4: 'm.', 5: 'y.'}
   mean_color = {0: 'b^', 1: 'g^', 2: 'r^', 3: 'c^', 4: 'm^', 5: 'y^'}
-  markers = {0: '^', 1: '.', 2: 'X', 3: 'v', 4: '1', 5: '*'}
+  markers = {0: ',', 1: '1', 2: 'x', 3: '+', 4: '|', 5: '_'}
+  #markers = {0: '^', 1: '.', 2: 'X', 3: 'v', 4: '1', 5: '*'}
 
   if mean:
     mean_keys = list(mean.keys())
@@ -180,14 +181,14 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, labels_map = None, mean = N
 
   task_label = None
   for i in range(0, len(data_view_tsne)):
+    marker = index_color[labels_orig[i]]
+    if not mlabels is None:
+      marker = plain_color[labels_orig[i]]
+      marker += markers[mlabels[i]]
     if labels_orig[i] in legend_tracker:
       label_ = labels_orig[i]
       if labels_map:
           label_ = labels_map[labels_orig[i]]
-      marker = index_color[labels_orig[i]]
-      if not mlabels is None:
-          marker = plain_color[labels_orig[i]]
-          marker += markers[mlabels[i]]
       axes.plot(tnse_embedding[i][0], tnse_embedding[i][1], marker, label=label_)
       axes.legend(loc='upper right')
       legend_tracker.pop(labels_orig[i])
