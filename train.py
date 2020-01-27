@@ -32,7 +32,8 @@ from allennlp.modules.seq2seq_encoders.multi_head_self_attention import MultiHea
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
-from models.classifier import MainClassifier, Seq2SeqClassifier, MajorityClassifier
+from models.classifier import MainClassifier
+from models.other_classifier import Seq2SeqClassifier, MajorityClassifier
 from models.mean_classifier import MeanClassifier
 from models.trec import TrecDatasetReader
 from models.subjectivity import SubjectivityDatasetReader
@@ -86,6 +87,7 @@ parser.add_argument('--transformer', help="Use transformer unit",action='store_t
 parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
+parser.add_argument('--ewc', help="Use Elastic Weight consolidation",action='store_true')
 parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
 
 ## Memory related options
@@ -201,7 +203,7 @@ if args.cnn:
                        num_layers=args.layers,
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
-  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed)
+  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed, args=args)
   if args.mean_classifier:
     print("We are on journey to use the mean classifier now.")
     model = MeanClassifier(word_embeddings, cnn, vocab)
@@ -250,7 +252,7 @@ elif args.seq2vec or args.majority:
                       mem_size=args.mem_size,
                       mem_context_size=args.mem_context_size,
                       use_binary=args.use_binary)
-  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc, task_embed=args.task_embed)
+  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc, task_embed=args.task_embed, args=args)
   if args.majority:
     model = MajorityClassifier(vocab)
 else:
@@ -320,6 +322,7 @@ else:
                   patience=args.patience,
                   num_epochs=args.epochs,
                   cuda_device=devicea)
+  old_task_data = None
   for tid,i in enumerate(train,1):
     print("\nTraining task ", i)
     sys.stdout.flush()
@@ -327,7 +330,7 @@ else:
       if args.pad_memory:
           model.encoder.add_target_pad()
       training_ = True if i != 1 else False
-      model.set_task(i, training=training_)
+      model.set_task(i, training=training_, old_dataset=old_task_data)
       trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]
@@ -347,6 +350,7 @@ else:
     if not args.majority:
       metrics = trainer.train()
       trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), metrics['training_epochs'], timestep=tid)
+    old_task_data = train_data[i]
     for j in evaluate_tasks:
       print("\nEvaluating ", j)
       sys.stdout.flush()
@@ -425,16 +429,6 @@ else:
       print("Adding timestep to trainer",tid, tasks, j, float(metric['metric']))
       trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['metric']), timestep=tid)
       trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j), standard_metric, timestep=tid)
-    if not args.majority:
-      print("\n Joint Evaluating ")
-      sys.stdout.flush()
-      model.set_task("default")
-  #    overall_metric = evaluate(model=model,
-  #       instances=joint_dev,
-  #       data_iterator=iterator,
-  #       cuda_device=devicea,
-  #       batch_weight_key=None)
-  #    overall_metrics[i]["Joint"] = overall_metric
   # Calculate the catastrophic forgetting and add it into tensorboard before
   # closing the tensorboard
   c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
