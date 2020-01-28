@@ -141,7 +141,7 @@ def load_dataset(code, train_data, dev_data, few_data, embeddings='default'):
 def gen_plot(plt):
     """Create a pyplot plot and save to buffer."""
     buf = io.BytesIO()
-    plt.savefig(buf, format='jpeg')
+    plt.savefig(buf, format='png')
     buf.seek(0)
     image = PIL.Image.open(buf)
     image = ToTensor()(image).unsqueeze(0)
