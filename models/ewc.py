@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 import torch.utils.data
 from allennlp.data.iterators import BucketIterator
-
+from allennlp.nn.util import move_to_device
 
 def variable(t: torch.Tensor, use_cuda=True, **kwargs):
     if torch.cuda.is_available() and use_cuda:
@@ -29,6 +29,7 @@ class EWC(object):
     def update_penalty(self, t:int, model: nn.Module, datasets: list, vocab):
         if t == 1:
             return
+        self.t = t
         self.model = model
         self.vocab = vocab
         self._old_len_dataset = self._len_dataset
@@ -50,7 +51,10 @@ class EWC(object):
         for input in iterator(self.dataset, num_epochs=1):
             self.model.zero_grad()
             #input = variable(input)
-            output = self.model(input['tokens'], input['label'])
+          
+            if torch.cuda.is_available(): 
+                input = move_to_device(input, torch.cuda.current_device())
+            output = self.model(input['tokens'], input['label'], task_id=self.t-1)
             #label = output.max(1)[1].view(-1)
             #loss = F.nll_loss(F.log_softmax(output, dim=1), label)
             loss = output['loss']
@@ -58,8 +62,9 @@ class EWC(object):
 
             for n, p in self.model.named_parameters():
                 if not p.grad is None and n in self._precision_matrices:
+                    #print(" grad ", self._precision_matrices[n], self._len_dataset, self._old_len_dataset)
                     self._precision_matrices[n].data += p.grad.data ** 2
-                    self._precision_matrices[n].data = self._precision_matrices[n].data*(self._len_dataset/self._old_len_dataset)
+                    self._precision_matrices[n].data = self._precision_matrices[n].data*(self._old_len_dataset/self._len_dataset)
 
     def penalty(self, t:int):
         loss = 0

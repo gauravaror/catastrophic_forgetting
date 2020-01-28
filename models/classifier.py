@@ -21,6 +21,7 @@ from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
 from models.task_encoding import TaskEncoding
 from models.ewc import EWC
+from allennlp.nn.util import move_to_device
 
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda
@@ -73,8 +74,12 @@ class MainClassifier(Model):
   def get_current_taskid(self):
       return self.task2id[self.current_task]
 
-  def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
-    hidden2tag = self.classification_layers[self.get_current_taskid()]
+  def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None, task_id = None) -> Dict[str, torch.Tensor]:
+    if (task_id is None):
+        task_id = self.get_current_taskid()
+    hidden2tag = self.classification_layers[task_id]
+    if torch.cuda.is_available():
+        tokens = move_to_device(tokens, torch.cuda.current_device())
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
     if self.task_encoder:
