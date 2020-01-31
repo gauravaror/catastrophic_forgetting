@@ -4,9 +4,9 @@ import torch.nn as nn
 from torch.nn import TransformerEncoder
 from models.utils import Hardsigmoid, BernoulliST
 from models.kv_memory import KeyValueMemory
+from torch.nn.modules import *
 from models.multihead import MultiheadAttention
 from torch.nn.modules.module import Module
-from torch.nn.modules import *
 from torch.nn import functional as F
 
 # It's actually TransformerEncoder custom with PositionalEncoder but we use 
@@ -46,6 +46,7 @@ class TransformerEncoderLayer(Module):
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="relu"):
         super(TransformerEncoderLayer, self).__init__()
+        print("Calling initi Mutl")
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = Linear(d_model, dim_feedforward)
@@ -74,6 +75,7 @@ class TransformerEncoderLayer(Module):
         Shape:
             see the docs in Transformer class.
         """
+        print("Encoder")
         src2 = self.self_attn(src, src, src, attn_mask=src_mask,
                               key_padding_mask=src_key_padding_mask)[0]
         src = src + self.dropout1(src2)

@@ -14,6 +14,28 @@ from torch.nn import grad  # noqa: F401
 from torch.nn import _VF
 from torch._jit_internal import boolean_dispatch, List
 
+def linear(input, weight, bias=None):
+    # type: (Tensor, Tensor, Optional[Tensor]) -> Tensor
+    r"""
+    Applies a linear transformation to the incoming data: :math:`y = xA^T + b`.
+    Shape:
+        - Input: :math:`(N, *, in\_features)` where `*` means any number of
+          additional dimensions
+        - Weight: :math:`(out\_features, in\_features)`
+        - Bias: :math:`(out\_features)`
+        - Output: :math:`(N, *, out\_features)`
+    """
+    if input.dim() == 2 and bias is not None:
+        # fused op is marginally faster
+        ret = torch.addmm(bias, input, weight.t())
+    else:
+        output = input.matmul(weight.t())
+        if bias is not None:
+            output += bias
+        ret = output
+    return ret
+
+
 def multi_head_attention_forward(query,                           # type: Tensor
                                  key,                             # type: Tensor
                                  value,                           # type: Tensor
@@ -93,7 +115,9 @@ def multi_head_attention_forward(query,                           # type: Tensor
 
     head_dim = embed_dim // num_heads
     assert head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
-    scaling = float(head_dim) ** -0.5
+    print("Scaling working")
+    #scaling = float(head_dim) ** -0.5
+    scaling = 1
 
     if not use_separate_proj_weight:
         if torch.equal(query, key) and torch.equal(key, value):
@@ -332,6 +356,7 @@ class MultiheadAttention(Module):
         self.add_zero_attn = add_zero_attn
 
         self._reset_parameters()
+        print("Calling main")
 
     def _reset_parameters(self):
         if self._qkv_same_embed_dim:
@@ -389,6 +414,7 @@ class MultiheadAttention(Module):
           L is the target sequence length, S is the source sequence length.
         """
         if not self._qkv_same_embed_dim:
+            print("Going to call attention")
             return multi_head_attention_forward(
                 query, key, value, self.embed_dim, self.num_heads,
                 self.in_proj_weight, self.in_proj_bias,
@@ -400,6 +426,7 @@ class MultiheadAttention(Module):
                 q_proj_weight=self.q_proj_weight, k_proj_weight=self.k_proj_weight,
                 v_proj_weight=self.v_proj_weight)
         else:
+            print("Going to call attention 11")
             return multi_head_attention_forward(
                 query, key, value, self.embed_dim, self.num_heads,
                 self.in_proj_weight, self.in_proj_bias,
