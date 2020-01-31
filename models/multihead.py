@@ -14,6 +14,68 @@ from torch.nn import grad  # noqa: F401
 from torch.nn import _VF
 from torch._jit_internal import boolean_dispatch, List
 
+
+
+# Activation functions
+def dropout(input, p=0.5, training=True, inplace=False):
+    # type: (Tensor, float, bool, bool) -> Tensor
+    r"""
+    During training, randomly zeroes some of the elements of the input
+    tensor with probability :attr:`p` using samples from a Bernoulli
+    distribution.
+    See :class:`~torch.nn.Dropout` for details.
+    Args:
+        p: probability of an element to be zeroed. Default: 0.5
+        training: apply dropout if is ``True``. Default: ``True``
+        inplace: If set to ``True``, will do this operation in-place. Default: ``False``
+    """
+    if p < 0. or p > 1.:
+        raise ValueError("dropout probability has to be between 0 and 1, "
+                         "but got {}".format(p))
+    return (_VF.dropout_(input, p, training)
+            if inplace
+            else _VF.dropout(input, p, training))
+
+
+def softmax(input, dim=None, _stacklevel=3, dtype=None):
+    # type: (Tensor, Optional[int], int, Optional[int]) -> Tensor
+    r"""Applies a softmax function.
+    Softmax is defined as:
+    :math:`\text{Softmax}(x_{i}) = \frac{exp(x_i)}{\sum_j exp(x_j)}`
+    It is applied to all slices along dim, and will re-scale them so that the elements
+    lie in the range `[0, 1]` and sum to 1.
+    See :class:`~torch.nn.Softmax` for more details.
+    Arguments:
+        input (Tensor): input
+        dim (int): A dimension along which softmax will be computed.
+        dtype (:class:`torch.dtype`, optional): the desired data type of returned tensor.
+          If specified, the input tensor is casted to :attr:`dtype` before the operation
+          is performed. This is useful for preventing data type overflows. Default: None.
+    .. note::
+        This function doesn't work directly with NLLLoss,
+        which expects the Log to be computed between the Softmax and itself.
+        Use log_softmax instead (it's faster and has better numerical properties).
+    """
+    if dim is None:
+        dim = _get_softmax_dim('softmax', input.dim(), _stacklevel)
+    if dtype is None:
+        ret = input.softmax(dim)
+    else:
+        ret = input.softmax(dim, dtype=dtype)
+    return ret
+
+
+def _get_softmax_dim(name, ndim, stacklevel):
+    # type: (str, int, int) -> int
+    warnings.warn("Implicit dimension choice for {} has been deprecated. "
+                  "Change the call to include dim=X as an argument.".format(name), stacklevel=stacklevel)
+    if ndim == 0 or ndim == 1 or ndim == 3:
+        ret = 0
+    else:
+        ret = 1
+    return ret
+
+
 def linear(input, weight, bias=None):
     # type: (Tensor, Tensor, Optional[Tensor]) -> Tensor
     r"""
@@ -115,7 +177,6 @@ def multi_head_attention_forward(query,                           # type: Tensor
 
     head_dim = embed_dim // num_heads
     assert head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
-    print("Scaling working")
     #scaling = float(head_dim) ** -0.5
     scaling = 1
 
@@ -356,7 +417,6 @@ class MultiheadAttention(Module):
         self.add_zero_attn = add_zero_attn
 
         self._reset_parameters()
-        print("Calling main")
 
     def _reset_parameters(self):
         if self._qkv_same_embed_dim:
@@ -414,7 +474,6 @@ class MultiheadAttention(Module):
           L is the target sequence length, S is the source sequence length.
         """
         if not self._qkv_same_embed_dim:
-            print("Going to call attention")
             return multi_head_attention_forward(
                 query, key, value, self.embed_dim, self.num_heads,
                 self.in_proj_weight, self.in_proj_bias,
@@ -426,7 +485,6 @@ class MultiheadAttention(Module):
                 q_proj_weight=self.q_proj_weight, k_proj_weight=self.k_proj_weight,
                 v_proj_weight=self.v_proj_weight)
         else:
-            print("Going to call attention 11")
             return multi_head_attention_forward(
                 query, key, value, self.embed_dim, self.num_heads,
                 self.in_proj_weight, self.in_proj_bias,
