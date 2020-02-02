@@ -184,7 +184,10 @@ def run_tsne_embeddings(data_view_tsne, labels_orig, labels_map = None, mean = N
     marker = index_color[labels_orig[i]]
     if not mlabels is None:
       marker = plain_color[labels_orig[i]]
-      marker += markers[mlabels[i]]
+      if labels_orig[i] in legend_tracker:
+        marker += 'X'
+      else:
+        marker += markers[mlabels[i]]
     if labels_orig[i] in legend_tracker:
       label_ = labels_orig[i]
       if labels_map:
