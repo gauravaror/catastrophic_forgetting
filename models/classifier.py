@@ -20,6 +20,7 @@ from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
 from models.task_encoding import TaskEncoding
+from models.transformer_encoder import PositionalEncoding
 from models.ewc import EWC
 from allennlp.nn.util import move_to_device
 
@@ -32,6 +33,7 @@ class MainClassifier(Model):
                vocab: Vocabulary, args, inv_temp: float = None,
                temp_inc:float = None, task_embed = None) -> None:
     super().__init__(vocab)
+    self.args = args
     self.word_embeddings = word_embeddings
     self.encoder = encoder
     self.vocab = vocab
@@ -48,6 +50,7 @@ class MainClassifier(Model):
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
     self.task_encoder = TaskEncoding(self.word_embeddings.get_output_dim()) if task_embed else None
+    self.pos_embedding = PositionalEncoding(self.word_embeddings.get_output_dim(), 0.5) if self.args.position_embed else None
     self.args = args
     if self.args.ewc:
         self.ewc = EWC(self)
@@ -82,6 +85,8 @@ class MainClassifier(Model):
         tokens = move_to_device(tokens, torch.cuda.current_device())
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
+    if self.args.position_embed:
+        embeddings = self.pos_embedding(embeddings)
     if self.task_encoder:
         embeddings = self.task_encoder(embeddings, self.get_current_taskid())
     if self.inv_temp:

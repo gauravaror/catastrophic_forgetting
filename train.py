@@ -89,6 +89,7 @@ parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
 parser.add_argument('--ewc', help="Use Elastic Weight consolidation",action='store_true')
 parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
+parser.add_argument('--position_embed', action='store_true', help="Add the positional embeddings in the word embeddings.")
 
 ## Memory related options
 parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
