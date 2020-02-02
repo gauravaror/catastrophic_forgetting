@@ -74,8 +74,9 @@ class TransformerEncoderLayer(Module):
         Shape:
             see the docs in Transformer class.
         """
-        src2 = self.self_attn(src, src, src, attn_mask=src_mask,
-                              key_padding_mask=src_key_padding_mask)[0]
+        src2,src2_wt = self.self_attn(src, src, src, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)
+        #print("Attention weights", src2_wt.shape)
         src = src + self.dropout1(src2)
         src = self.norm1(src)
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
@@ -118,15 +119,19 @@ class TransformerRepresentation(nn.Module):
         return self.memory.get_input_size()
 
     def forward(self, src, mask):
+        src = src.transpose(0,1)
         if self.src_mask is None or self.src_mask.size(0) != len(src):
             device = src.device
             mask = self._generate_square_subsequent_mask(len(src)).to(device)
+            #print("Mask shape", mask.shape)
             self.src_mask = mask
 
-        src = src * math.sqrt(self.emb_dim)
+        #src = src * math.sqrt(self.emb_dim)
         src = self.pos_encoder(src)
         src_input = self.memory(src)
         output = self.transformer_encoder(src_input, self.src_mask)
+        output = output.transpose(0,1)
+        #print(output.shape, torch.mean(output, dim=1).shape)
         return torch.mean(output, dim=1)
 
 class PositionalEncoding(nn.Module):
@@ -140,9 +145,9 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
+        pe = pe.unsqueeze(0).transpose(0,1)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[: ,:x.size(1), :]
+        x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
