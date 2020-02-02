@@ -88,7 +88,12 @@ class MainClassifier(Model):
     if self.args.position_embed:
         embeddings = self.pos_embedding(embeddings)
     if self.task_encoder:
-        embeddings = self.task_encoder(embeddings, self.get_current_taskid())
+        bs,seq,edi = embeddings.shape
+        task_em = torch.randn((bs,seq,1))
+        task_em.fill_(self.get_current_taskid())
+        embeddings = torch.cat([embeddings, task_em], dim=-1)
+        #embeddings = self.task_encoder(embeddings, self.get_current_taskid())
+
     if self.inv_temp:
         embeddings = self.inv_temp*embeddings
     if type(self.encoder) == HashedMemoryRNN:

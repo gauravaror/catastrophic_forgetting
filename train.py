@@ -184,6 +184,9 @@ vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
 word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim, rq_grad=args.train_embeddings)
 
+word_embedding_dim = word_embeddings.get_output_dim()
+if args.task_embed:
+    word_embedding_dim += 1
 
 experiment="lstm"
 print("CNN",args.cnn)
@@ -192,7 +195,7 @@ if args.cnn:
   experiment += args.pooling
   ngrams_f=(args.ngram_filter,)
   strides=(args.stride,)
-  cnn = CnnEncoder(embedding_dim=word_embeddings.get_output_dim(),
+  cnn = CnnEncoder(embedding_dim=word_embedding_dim,
                    num_layers=args.layers,
 		   ngram_filter_sizes=ngrams_f,
 		   strides=strides,
@@ -200,7 +203,7 @@ if args.cnn:
                    pooling=args.pooling)
   if args.pyramid:
       experiment="dpcnn"
-      cnn = DeepPyramidCNN(embedding_dim=word_embeddings.get_output_dim(),
+      cnn = DeepPyramidCNN(embedding_dim=word_embedding_dim,
                        num_layers=args.layers,
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
@@ -210,14 +213,14 @@ if args.cnn:
     model = MeanClassifier(word_embeddings, cnn, vocab)
 elif args.seq2vec or args.majority:
   experiment="lstm"
-  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(word_embeddings.get_output_dim(), args.h_dim,
+  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(word_embedding_dim, args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
 					   batch_first=True))
   if args.gru:
     experiment="gru"
-    lstm = PytorchSeq2VecWrapper(torch.nn.GRU( word_embeddings.get_output_dim(), args.h_dim,
+    lstm = PytorchSeq2VecWrapper(torch.nn.GRU( word_embedding_dim, args.h_dim,
 					   num_layers=args.layers,
 					   dropout=args.dropout,
 					   bidirectional=args.bidirectional,
@@ -225,7 +228,7 @@ elif args.seq2vec or args.majority:
   if args.hashed:
     experiment="embedding_access_memory"
     memory_embeddings = utils.get_embedder("glove", vocab, args.e_dim, rq_grad=False)
-    lstm = HashedMemoryRNN(word_embeddings.get_output_dim(), args.h_dim,
+    lstm = HashedMemoryRNN(word_embedding_dim, args.h_dim,
                       inv_temp=args.inv_temp,
                       mem_size=args.mem_size,
                       num_layers=args.layers,
@@ -235,7 +238,7 @@ elif args.seq2vec or args.majority:
 		      memmory_embed=memory_embeddings)
   if args.IDA:
     experiment="IDA"
-    lstm = EncoderRNN(word_embeddings.get_output_dim(), args.h_dim,
+    lstm = EncoderRNN(word_embedding_dim, args.h_dim,
                       inv_temp=args.inv_temp,
                       mem_size=args.mem_size,
                       num_layers=args.layers,
@@ -259,7 +262,7 @@ elif args.seq2vec or args.majority:
 else:
   experiment="selfattention"
   attentionseq = StackedSelfAttentionEncoder(
-					   input_dim=word_embeddings.get_output_dim(),
+					   input_dim=word_embedding_dim,
 					   hidden_dim=args.h_dim,
 					   projection_dim=128,
 					   feedforward_hidden_dim=128,
