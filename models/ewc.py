@@ -47,6 +47,7 @@ class EWC(object):
         for n, p in deepcopy(self.params).items():
             p.data.zero_()
             self._precision_matrices[self.t][n] = variable(p.data)
+        self.model.set_ewc(True)
 
         iterator = BucketIterator(batch_size=512, sorting_keys=[("tokens", "num_tokens")])
 
@@ -61,12 +62,14 @@ class EWC(object):
             #loss = F.nll_loss(F.log_softmax(output, dim=1), label)
             loss = output['loss']
             loss.backward()
+            print("Doing backward")
 
             for n, p in self.model.named_parameters():
                 #print("Moving params ", p.grad, n)
                 if (not (p.grad is None)) and n in self._precision_matrices[self.t]:
                     #print(" grad ", self._precision_matrices[self.t][n], self._len_dataset, self._old_len_dataset)
                     self._precision_matrices[self.t][n].data += ((p.grad.data ** 2)/self._len_dataset)
+        self.model.set_ewc(False)
 
     def penalty(self, t:int):
         loss = 0

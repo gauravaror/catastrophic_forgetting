@@ -64,6 +64,12 @@ class MainClassifier(Model):
     self.task2id[task_tag] = self.num_task
     self.tasks_vocabulary[task_tag] = vocab
 
+  def set_ewc(self, mode=True):
+      if mode:
+          self.loss_function = torch.nn.NLLLoss()
+      else:
+          self.loss_function = torch.nn.CrossEntropyLoss()
+
   def set_task(self, task_tag: str, training: bool = False, old_dataset = None):
     #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.training = training
