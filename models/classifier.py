@@ -97,6 +97,8 @@ class MainClassifier(Model):
         bs,seq,edi = embeddings.shape
         task_em = torch.randn((bs,seq,1))
         task_em.fill_(self.get_current_taskid())
+        if torch.cuda.is_available():
+            task_em = move_to_device(task_em, torch.cuda.current_device())
         embeddings = torch.cat([embeddings, task_em], dim=-1)
         #embeddings = self.task_encoder(embeddings, self.get_current_taskid())
 
