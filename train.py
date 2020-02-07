@@ -227,7 +227,7 @@ elif args.seq2vec or args.majority:
 					   batch_first=True))
   if args.hashed:
     experiment="embedding_access_memory"
-    memory_embeddings = utils.get_embedder("glove", vocab, args.e_dim, rq_grad=False)
+    memory_embeddings = utils.get_embedder("glove", vocab, word_embedding_dim, rq_grad=False)
     lstm = HashedMemoryRNN(word_embedding_dim, args.h_dim,
                       inv_temp=args.inv_temp,
                       mem_size=args.mem_size,
@@ -247,7 +247,7 @@ elif args.seq2vec or args.majority:
                       batch_first=True)
   if args.transformer:
     experiment="transformer"
-    lstm = TransformerRepresentation(args.e_dim, # Embedding Dimension
+    lstm = TransformerRepresentation(word_embedding_dim, # Embedding Dimension
                       8, # Number of heads to use in embeddings.
                       args.h_dim, # Number of hidden units
                       args.layers, # Number of Layers
@@ -256,7 +256,8 @@ elif args.seq2vec or args.majority:
                       mem_size=args.mem_size,
                       mem_context_size=args.mem_context_size,
                       use_binary=args.use_binary)
-  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc, task_embed=args.task_embed, args=args)
+  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc,
+                         task_embed=args.task_embed, args=args, e_dim=word_embedding_dim)
   if args.majority:
     model = MajorityClassifier(vocab)
 else:
