@@ -30,7 +30,7 @@ from allennlp.training.util import move_optimizer_to_cuda
 @Model.register("main_classifier")
 class MainClassifier(Model):
   def __init__(self, word_embeddings: TextFieldEmbedder, encoder: Seq2VecEncoder,
-               vocab: Vocabulary, args, inv_temp: float = None,
+               vocab: Vocabulary, args, e_dim, inv_temp: float = None,
                temp_inc:float = None, task_embed = None) -> None:
     super().__init__(vocab)
     self.args = args
@@ -49,8 +49,9 @@ class MainClassifier(Model):
     self.labels = []
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
-    self.task_encoder = TaskEncoding(self.word_embeddings.get_output_dim()) if task_embed else None
-    self.pos_embedding = PositionalEncoding(self.word_embeddings.get_output_dim(), 0.5) if self.args.position_embed else None
+    self.e_dim = e_dim
+    self.task_encoder = TaskEncoding(self.e_dim) if task_embed else None
+    self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
     if self.args.ewc:
         self.ewc = EWC(self)
