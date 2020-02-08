@@ -74,8 +74,6 @@ class MainClassifier(Model):
   def set_task(self, task_tag: str, training: bool = False, old_dataset = None):
     #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.training = training
-    if self.args.ewc and self.training:
-        self.ewc.update_penalty(self.task2id[task_tag], self, old_dataset, self.tasks_vocabulary[self.current_task])
     self.current_task = task_tag
     self.vocab = self.tasks_vocabulary[task_tag]
     if training and self.temp_inc:
@@ -127,7 +125,9 @@ class MainClassifier(Model):
           #self.ewc.loss_function(self.get_current_taskid(), tag_logits, label)
       else:
           output["loss"] = self.loss_function(tag_logits, label)
-      #bad.register_hooks(tag_logits)
+    if self.args.ewc and self.training:
+        output["loss"].backward(retain_graph=True)
+        self.ewc.update_penalty(self.task2id[self.current_task], self)
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
