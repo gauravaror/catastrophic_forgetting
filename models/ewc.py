@@ -23,11 +23,12 @@ class EWC(object):
         self._len_dataset = 1
         self._old_len_dataset = 1
 
-    def update_penalty(self, t:int, model: nn.Module):
+    def update_penalty(self, t:int, model: nn.Module, len_data):
         #if t == 1:
         #    return
         self.t = t
         self.model = model
+        self._len_dataset = len_data
         self.params = {n: p for n, p in self.model.named_parameters() if p.requires_grad}
         self._diag_fisher()
 

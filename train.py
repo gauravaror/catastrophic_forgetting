@@ -335,7 +335,7 @@ else:
       if args.pad_memory:
           model.encoder.add_target_pad()
       training_ = True if i != 1 else False
-      model.set_task(i, training=training_, old_dataset=old_task_data)
+      model.set_task(i, training=training_, len_dataset=(len(train_data[i])/args.bs))
       trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]
