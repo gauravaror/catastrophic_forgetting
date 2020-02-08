@@ -7,6 +7,7 @@ from models.kv_memory import KeyValueMemory
 # It's actually TransformerEncoder custom with PositionalEncoder but we use 
 # name: TransformerRepresentation to avoid confusion with TransformerEncoder Representation.
 
+
 class TransformerRepresentation(nn.Module):
 
     def __init__(self, emb_dim, nhead, nhid, nlayers, dropout=0.5,
@@ -41,19 +42,15 @@ class TransformerRepresentation(nn.Module):
         return self.memory.get_input_size()
 
     def forward(self, src, mask):
-        src = src.transpose(0,1)
         if self.src_mask is None or self.src_mask.size(0) != len(src):
             device = src.device
             mask = self._generate_square_subsequent_mask(len(src)).to(device)
-            #print("Mask shape", mask.shape)
             self.src_mask = mask
 
-        #src = src * math.sqrt(self.emb_dim)
+        src = src * math.sqrt(self.emb_dim)
         src = self.pos_encoder(src)
         src_input = self.memory(src)
         output = self.transformer_encoder(src_input, self.src_mask)
-        output = output.transpose(0,1)
-        #print(output.shape, torch.mean(output, dim=1).shape)
         return torch.mean(output, dim=1)
 
 class PositionalEncoding(nn.Module):
@@ -67,9 +64,9 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0,1)
+        pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
+        x = x + self.pe[: ,:x.size(1), :]
         return self.dropout(x)
