@@ -72,12 +72,12 @@ class MainClassifier(Model):
       else:
           self.loss_function = torch.nn.CrossEntropyLoss()
 
-  def set_task(self, task_tag: str, training: bool = False, len_dataset = None):
+  def set_task(self, task_tag: str, training: bool = False, normaliser = None):
     #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.training = training
     self.current_task = task_tag
-    if training and (not len_dataset is None):
-        self._len_dataset = len_dataset
+    if training and (not normaliser is None):
+        self._len_dataset = normaliser
     self.vocab = self.tasks_vocabulary[task_tag]
     if training and self.temp_inc:
         self.inv_temp = self.temp_inc*self.inv_temp
@@ -124,7 +124,7 @@ class MainClassifier(Model):
       if self.args.ewc and self.training:
           output["loss"] = self.loss_function(tag_logits, label)
 
-          output["loss"] += 1000*self.ewc.penalty(self.get_current_taskid())
+          output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
           #self.ewc.loss_function(self.get_current_taskid(), tag_logits, label)
       else:
           output["loss"] = self.loss_function(tag_logits, label)

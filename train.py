@@ -88,6 +88,8 @@ parser.add_argument('--train_embeddings', help="Enable fine-tunning of embedding
 parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
 parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
 parser.add_argument('--ewc', help="Use Elastic Weight consolidation",action='store_true')
+parser.add_argument('--ewc_importance', type=int, default=1000, help="Use Elastic Weight consolidation importance to add weights")
+parser.add_argument('--ewc_normalise', type=str, help="Use Elastic Weight consolidation length, batches, none")
 parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
 parser.add_argument('--position_embed', action='store_true', help="Add the positional embeddings in the word embeddings.")
 
@@ -335,7 +337,14 @@ else:
       if args.pad_memory:
           model.encoder.add_target_pad()
       training_ = True if i != 1 else False
-      model.set_task(i, training=training_, len_dataset=(len(train_data[i])/args.bs))
+      normaliser = len(train_data[i])/args.bs
+      if args.ewc_normalise == 'length':
+          normaliser = len(train_data[i])
+      elif args.ewc_normalise == 'batches':
+          normaliser = len(train_data[i])/args.bs
+      else:
+          normaliser  = 1
+      model.set_task(i, training=training_, normaliser=normaliser)
       trainer._num_epochs = args.epochs
       iterator.index_with(vocabulary[i])
       trainer.train_data = train_data[i]

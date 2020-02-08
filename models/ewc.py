@@ -62,5 +62,4 @@ class EWC(object):
                   _loss = self._precision_matrices[key][n] * (p - self._means[key][n]) ** 2
                   #print("Loss", _loss, " precision ", self._precision_matrices[key][n], "  Diff  ", (p-self._means[key][n]))
                   loss += _loss.sum()
-        print(loss)
         return loss
