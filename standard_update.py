@@ -107,13 +107,16 @@ def update_graph(code, exper, hdim, layer, tasks):
     data = []
     splitcode = code.split('_')
     def get_name(current_row, task):
+        name=''
         if len(exper) > 1:
-            return "Exper: "+ str(current_row['exper'])
-        elif len(hdim) > 1:
-            return "HDIM: "+ str(current_row['hdim'])
-        elif len(layer) > 1:
-            return "Layer: " + str(current_row['layer'])
-        return "Task: " + task
+            name += "E_"+ str(current_row['exper'])
+        if len(hdim) > 1:
+            name += "_H_"+ str(current_row['hdim'])
+        if len(layer) > 1:
+            name += "_L_" + str(current_row['layer'])
+        if len(name) == 0 or len(tasks) > 1:
+            name += "_T_" + task
+        return name
 
     def get_prefix(total):
         common_prefix=''
@@ -169,7 +172,7 @@ def update_graph(code, exper, hdim, layer, tasks):
     for i in range(len(tot_df)):
         current_row = tot_df.iloc[i]
         name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        rr = {'type': 'bar', 'x': [get_name(current_row,'')], 'y': [current_row['step_2_mean']], 'name': name}
+        rr = {'type': 'bar', 'x': [current_row['exper']], 'y': [current_row['step_2_mean']], 'name': name}
         total_data.append(rr)
     print(total_data)
     fp = {'data':  total_data, 'layout': layout}
