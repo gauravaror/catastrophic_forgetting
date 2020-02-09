@@ -90,7 +90,6 @@ app.layout = html.Div([
      Input('layer', 'value'),
      Input('tasks', 'value')])
 def update_graph(code, exper, hdim, layer, tasks):
-    dff = {}
     df = dataset.df
     total = dataset.total
     data = []
@@ -106,18 +105,22 @@ def update_graph(code, exper, hdim, layer, tasks):
             return "Layer: " + str(current_row['layer'])
         return "Task: " + task
 
+    def filter_df(this_df):
+        this_df = this_df[this_df['code'] == code]
+        this_df = this_df[this_df.exper.isin(exper)]
+        this_df = this_df[this_df.hdim.isin(hdim)]
+        this_df = this_df[this_df.layer.isin(layer)]
+        return this_df
+
     for task in tasks:
-        dff[task] = df[task][df[task]['code'] == code]
-        dff[task] = dff[task][dff[task].exper.isin(exper)]
-        dff[task] = dff[task][dff[task].hdim.isin(hdim)]
-        dff[task] = dff[task][dff[task].layer.isin(layer)]
-        if len(dff[task]) == 0:
+        my_df = filter_df(df[task])
+        if len(my_df) == 0:
             print("Not found this config", exper, hdim, layer, code)
             continue
-        for i in range(len(dff[task])):
-            current_row = dff[task].iloc[i]
+        for i in range(len(my_df)):
+            current_row = my_df.iloc[i]
             accuracy = [current_row['step_1_mean'], current_row['step_2_mean'], current_row['step_3_mean'], current_row['step_4_mean']]
-            rr = {'exper':dff[task].iloc[i]['exper'], 'type': 'line', 'x': splitcode, 'y': accuracy, 'name': get_name(current_row, task) }
+            rr = {'exper': current_row['exper'], 'type': 'line', 'x': splitcode, 'y': accuracy, 'name': get_name(current_row, task) }
             print(rr)
             data.append(rr)
 
