@@ -209,7 +209,7 @@ if args.cnn:
                        num_layers=args.layers,
 		       ngram_filter_sizes=ngrams_f,
 		       num_filters=args.h_dim)
-  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed, args=args)
+  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed, args=args, e_dim=word_embedding_dim)
   if args.mean_classifier:
     print("We are on journey to use the mean classifier now.")
     model = MeanClassifier(word_embeddings, cnn, vocab)
