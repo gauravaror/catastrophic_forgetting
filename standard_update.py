@@ -97,8 +97,6 @@ def update_graph(code, exper, hdim, layer, tasks):
     def get_name(current_row, task):
         if len(exper) > 1:
             return "Exper: "+ str(current_row['exper'])
-        elif len(tasks) > 1:
-            return "Task: "+ task
         elif len(hdim) > 1:
             return "HDIM: "+ str(current_row['hdim'])
         elif len(layer) > 1:
@@ -121,23 +119,25 @@ def update_graph(code, exper, hdim, layer, tasks):
             current_row = my_df.iloc[i]
             accuracy = [current_row['step_1_mean'], current_row['step_2_mean'], current_row['step_3_mean'], current_row['step_4_mean']]
             rr = {'exper': current_row['exper'], 'type': 'line', 'x': splitcode, 'y': accuracy, 'name': get_name(current_row, task) }
-            print(rr)
             data.append(rr)
-
-    pp = {
-        'data': data,
-        'layout': {
+    layout = {
                 'plot_bgcolor': colors['background'],
                 'paper_bgcolor': colors['background'],
                 'font': {
                     'color': colors['text']
                 }
             }
-        }
-    fp = {
+    pp = {'data': data, 'layout': layout}
 
-            }
-    return pp,pp
+    total_data =  []
+    tot_df = filter_df(total)
+    for i in range(len(tot_df)):
+        current_row = tot_df.iloc[i]
+        rr = {'type': 'bar', 'x': [get_name(current_row,'')], 'y': [current_row['step_2_mean']], 'name': get_name(current_row,'')}
+        total_data.append(rr)
+    print(total_data)
+    fp = {'data':  total_data, 'layout': layout}
+    return pp,fp
 
 
 if __name__ == '__main__':
