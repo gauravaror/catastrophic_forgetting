@@ -2,6 +2,11 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('path', type=str, help="Aggregation path")
+args = parser.parse_args()
 
 import pandas as pd
 
@@ -17,16 +22,24 @@ colors = {
 }
 
 class LoadDatasets:
-    def __init__(self, path='', tasks=['trec', 'sst', 'cola', 'subjectivity']):
-        self.path = path
+    def __init__(self, args, tasks=['trec', 'sst', 'cola', 'subjectivity']):
+        self.args = args
+        # Standard Evaluate path
+        self.se_path = 'standard_evaluate/'
+        # Forgetting Metric Path
+        self.fm_path = 'forgetting_metic/standard_total.df'
+        if args.path:
+            self.se_path = args.path + '/evaluate_csv_agg/aggregates/standard_evaluate/'
+            self.fm_path = args.path + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df'
         self.df = {}
         self.tasks = tasks
         self.load_tasks()
 
     def load_tasks(self):
         # Load Tasks ds
+        self.total = pd.read_pickle(self.fm_path)
         for task in self.tasks:
-            self.df[task] = pd.read_pickle(self.path + task + '.df')
+            self.df[task] = pd.read_pickle(self.se_path + task + '.df')
 
     def get_unique(self, attr='code'):
         output = []
@@ -34,7 +47,7 @@ class LoadDatasets:
             output.extend(list(self.df[task][attr].unique()))
         return list(set(output))
 
-dataset = LoadDatasets()
+dataset = LoadDatasets(args)
 
 app.layout = html.Div([
         dcc.Dropdown(
@@ -65,10 +78,12 @@ app.layout = html.Div([
             value=dataset.tasks,
             multi=True),
         dcc.Graph(id='performance_plot'),
+        dcc.Graph(id='forgetting_plot'),
 ])
 
 @app.callback(
-    Output('performance_plot', 'figure'),
+    [Output('performance_plot', 'figure'),
+     Output('forgetting_plot', 'figure')],
     [Input('code', 'value'),
      Input('exper', 'value'),
      Input('hdim', 'value'),
@@ -77,17 +92,18 @@ app.layout = html.Div([
 def update_graph(code, exper, hdim, layer, tasks):
     dff = {}
     df = dataset.df
+    total = dataset.total
     data = []
     splitcode = code.split('_')
-    def get_name(df, i, task):
+    def get_name(current_row, task):
         if len(exper) > 1:
-            return "Exper: "+ str(df.iloc[i, 1])
+            return "Exper: "+ str(current_row['exper'])
         elif len(tasks) > 1:
             return "Task: "+ task
         elif len(hdim) > 1:
-            return "HDIM: "+ str(df.iloc[i, 2])
+            return "HDIM: "+ str(current_row['hdim'])
         elif len(layer) > 1:
-            return "Layer: " + str(df.iloc[i, 3])
+            return "Layer: " + str(current_row['layer'])
         return "Task: " + task
 
     for task in tasks:
@@ -95,12 +111,17 @@ def update_graph(code, exper, hdim, layer, tasks):
         dff[task] = dff[task][dff[task].exper.isin(exper)]
         dff[task] = dff[task][dff[task].hdim.isin(hdim)]
         dff[task] = dff[task][dff[task].layer.isin(layer)]
+        if len(dff[task]) == 0:
+            print("Not found this config", exper, hdim, layer, code)
+            continue
         for i in range(len(dff[task])):
-            rr = {'exper':dff[task].iloc[i,1], 'type': 'line', 'x': splitcode, 'y':list(dff[task].iloc[i,7::6]), 'name': get_name(dff[task], i, task) }
+            current_row = dff[task].iloc[i]
+            accuracy = [current_row['step_1_mean'], current_row['step_2_mean'], current_row['step_3_mean'], current_row['step_4_mean']]
+            rr = {'exper':dff[task].iloc[i]['exper'], 'type': 'line', 'x': splitcode, 'y': accuracy, 'name': get_name(current_row, task) }
             print(rr)
             data.append(rr)
 
-    return {
+    pp = {
         'data': data,
         'layout': {
                 'plot_bgcolor': colors['background'],
@@ -110,6 +131,10 @@ def update_graph(code, exper, hdim, layer, tasks):
                 }
             }
         }
+    fp = {
+
+            }
+    return pp,pp
 
 
 if __name__ == '__main__':
