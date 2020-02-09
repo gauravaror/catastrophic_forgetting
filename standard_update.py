@@ -121,9 +121,9 @@ def update_graph(code, exper, hdim, layer, tasks):
         while True:
             char=None
             for i in total.exper.unique():
-                curr_char = i[index]
                 if index >= len(i):
                     return ''
+                curr_char = i[index]
                 if not char:
                     char = curr_char
                 else:
@@ -168,7 +168,8 @@ def update_graph(code, exper, hdim, layer, tasks):
     tot_df = filter_df(total)
     for i in range(len(tot_df)):
         current_row = tot_df.iloc[i]
-        rr = {'type': 'bar', 'x': [get_name(current_row,'')], 'y': [current_row['step_2_mean']], 'name': get_name(current_row,'')}
+        name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
+        rr = {'type': 'bar', 'x': [get_name(current_row,'')], 'y': [current_row['step_2_mean']], 'name': name}
         total_data.append(rr)
     print(total_data)
     fp = {'data':  total_data, 'layout': layout}
