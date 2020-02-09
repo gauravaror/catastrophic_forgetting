@@ -53,6 +53,7 @@ class MainClassifier(Model):
     self.task_encoder = TaskEncoding(self.e_dim) if task_embed else None
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
+    self._len_dataset = None
     if self.args.ewc:
         self.ewc = EWC(self)
 
@@ -71,12 +72,12 @@ class MainClassifier(Model):
       else:
           self.loss_function = torch.nn.CrossEntropyLoss()
 
-  def set_task(self, task_tag: str, training: bool = False, old_dataset = None):
+  def set_task(self, task_tag: str, training: bool = False, normaliser = None):
     #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.training = training
-    if self.args.ewc and self.training:
-        self.ewc.update_penalty(self.task2id[task_tag], self, old_dataset, self.tasks_vocabulary[self.current_task])
     self.current_task = task_tag
+    if training and (not normaliser is None):
+        self._len_dataset = normaliser
     self.vocab = self.tasks_vocabulary[task_tag]
     if training and self.temp_inc:
         self.inv_temp = self.temp_inc*self.inv_temp
@@ -125,11 +126,13 @@ class MainClassifier(Model):
       if self.args.ewc and self.training:
           output["loss"] = self.loss_function(tag_logits, label)
 
-          output["loss"] += 1000*self.ewc.penalty(self.get_current_taskid())
+          output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
           #self.ewc.loss_function(self.get_current_taskid(), tag_logits, label)
       else:
           output["loss"] = self.loss_function(tag_logits, label)
-      #bad.register_hooks(tag_logits)
+    if self.args.ewc and self.training:
+        output["loss"].backward(retain_graph=True)
+        self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
