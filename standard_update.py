@@ -49,7 +49,19 @@ class LoadDatasets:
 
 dataset = LoadDatasets(args)
 
-app.layout = html.Div([
+app.layout = html.Div(style={'backgroundColor': colors['background']},
+    children=[
+       html.H1(
+            children='Forgetting Analyser',
+            style={
+                'textAlign': 'center',
+                'color': colors['text']
+            }
+        ),
+        html.Div(children='Forgetting Analyser', style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }),
         dcc.Dropdown(
             id='code',
             options=[{'label': i, 'value': i} for i in dataset.get_unique()],
@@ -103,12 +115,35 @@ def update_graph(code, exper, hdim, layer, tasks):
             return "Layer: " + str(current_row['layer'])
         return "Task: " + task
 
+    def get_prefix(total):
+        common_prefix=''
+        index = 0
+        while True:
+            char=None
+            for i in total.exper.unique():
+                curr_char = i[index]
+                if index >= len(i):
+                    return ''
+                if not char:
+                    char = curr_char
+                else:
+                    if char != curr_char:
+                        return common_prefix
+            common_prefix += curr_char
+            index += 1
+
     def filter_df(this_df):
         this_df = this_df[this_df['code'] == code]
         this_df = this_df[this_df.exper.isin(exper)]
         this_df = this_df[this_df.hdim.isin(hdim)]
         this_df = this_df[this_df.layer.isin(layer)]
+        prefix = ''
+        if len(this_df) > 1:
+            prefix = get_prefix(this_df)
+        this_df.exper = this_df.exper.str.replace(prefix, '')
+        this_df.exper = this_df.exper.str.replace('_exper', '')
         return this_df
+
 
     for task in tasks:
         my_df = filter_df(df[task])
