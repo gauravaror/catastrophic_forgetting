@@ -27,6 +27,7 @@ class TransformerRepresentation(nn.Module):
         encoder_layers = TransformerEncoderLayer(self.memory.get_input_size(),
                                                  nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+        self.pooler = nn.Linear(self.emb_dim, self.emb_dim)
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
@@ -54,7 +55,9 @@ class TransformerRepresentation(nn.Module):
         output = self.transformer_encoder(src_input, self.src_mask)
         output = output.transpose(0,1)
         #print(output.shape, torch.mean(output, dim=1).shape)
-        return torch.mean(output, dim=1)
+        #seq_output = output[:,0]
+        #seq_output = self.pooler(seq_output)
+        return output.max(dim=1)[0]
 
 class PositionalEncoding(nn.Module):
 

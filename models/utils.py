@@ -103,35 +103,35 @@ def get_optimizer(opt, parameters, lr_, wdecay):
         move_optimizer_to_cuda(myopt)
     return myopt
 
-def load_dataset(code, train_data, dev_data, few_data, embeddings='default'):
+def load_dataset(code, train_data, dev_data, few_data, embeddings='default', special=None):
   if code == "sst_2c":
     # Sentiment task 2 class
-    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class", embeddings=embeddings)
+    reader_senti_2class = StanfordSentimentTreeBankDatasetReader1(granularity="2-class", embeddings=embeddings, spl=special)
     train_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/train.txt')
     dev_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/dev.txt')
     few_data["sst_2c"] = reader_senti_2class.read('data/SST/trees/few.txt')
   elif code == 'sst':
-    reader_senti = StanfordSentimentTreeBankDatasetReader1(embeddings=embeddings)
+    reader_senti = StanfordSentimentTreeBankDatasetReader1(embeddings=embeddings, spl=special)
     train_data["sst"] = reader_senti.read('data/SST/trees/train.txt')
     dev_data["sst"] = reader_senti.read('data/SST/trees/dev.txt')
     few_data["sst"] = reader_senti.read('data/SST/trees/few.txt')
   elif code == 'cola':
-    reader_cola = CoLADatasetReader(embeddings=embeddings)
+    reader_cola = CoLADatasetReader(embeddings=embeddings, spl=special)
     train_data["cola"] = reader_cola.read('data/CoLA/train.txt')
     dev_data["cola"] = reader_cola.read('data/CoLA/dev.txt')
     few_data["cola"] = reader_cola.read('data/CoLA/few.txt')
   elif code == 'trec':
-    reader_trec = TrecDatasetReader(embeddings=embeddings)
+    reader_trec = TrecDatasetReader(embeddings=embeddings, spl=special)
     train_data["trec"] = reader_trec.read('data/TREC/train.txt')
     dev_data["trec"] = reader_trec.read('data/TREC/dev.txt')
     few_data["trec"] = reader_trec.read('data/TREC/few.txt')
   elif code == 'subjectivity':
-    reader_subj = SubjectivityDatasetReader(embeddings=embeddings)
+    reader_subj = SubjectivityDatasetReader(embeddings=embeddings, spl=special)
     train_data["subjectivity"] = reader_subj.read('data/Subjectivity/train.txt')
     dev_data["subjectivity"] = reader_subj.read('data/Subjectivity/test.txt')
     few_data["subjectivity"] = reader_subj.read('data/Subjectivity/few.txt')
   elif code == 'ag':
-    reader_ag = AGNewsDatasetReader(embeddings=embeddings)
+    reader_ag = AGNewsDatasetReader(embeddings=embeddings, spl=special)
     train_data["ag"] = reader_ag.read('data/ag/train.csv')
     dev_data["ag"] = reader_ag.read('data/ag/val.csv')
     few_data["ag"] = reader_ag.read('data/ag/val.csv')

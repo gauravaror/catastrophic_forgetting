@@ -50,8 +50,8 @@ class StanfordSentimentTreeBankDatasetReader1(BaseReader):
                  token_indexers: Dict[str, TokenIndexer] = None,
                  use_subtrees: bool = False,
                  granularity: str = "5-class",
-                 lazy: bool = False, embeddings = 'default') -> None:
-        super().__init__(lazy=lazy, embeddings=embeddings, token_indexers=token_indexers)
+                 lazy: bool = False, embeddings = 'default', spl=True) -> None:
+        super().__init__(lazy=lazy, embeddings=embeddings, token_indexers=token_indexers, spl=spl)
         self._use_subtrees = use_subtrees
         allowed_granularities = ["5-class", "3-class", "2-class"]
         if granularity not in allowed_granularities:

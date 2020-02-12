@@ -16,8 +16,8 @@ class SubjectivityDatasetReader(BaseReader):
 
          LOC:city Tell me what city the Kentucky Horse Park is near ?
     """
-    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings='default') -> None:
-        super().__init__(lazy=False, embeddings=embeddings, token_indexers=token_indexers)
+    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings='default', spl=True) -> None:
+        super().__init__(lazy=False, embeddings=embeddings, token_indexers=token_indexers, spl=True)
 
     def text_to_instance(self, tokens: List[Token], tags: List[str] = None) -> Instance:
         sentence_field = TextField(tokens, self.token_indexers)

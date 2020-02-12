@@ -16,8 +16,8 @@ class CoLADatasetReader(BaseReader):
 
          LOC:city Tell me what city the Kentucky Horse Park is near ?
     """
-    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings='default') -> None:
-        super().__init__(lazy=False, token_indexers=token_indexers, embeddings=embeddings)
+    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings='default', spl=True) -> None:
+        super().__init__(lazy=False, token_indexers=token_indexers, embeddings=embeddings, spl=spl)
 
     def text_to_instance(self, tokens: List[Token], tags: List[str] = None) -> Instance:
         sentence_field = TextField(tokens, self.token_indexers)

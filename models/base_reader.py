@@ -20,17 +20,22 @@ class BaseReader(DatasetReader):
 
          LOC:city Tell me what city the Kentucky Horse Park is near ?
     """
-    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, embeddings = 'default', lazy=False) -> None:
+    def __init__(self, token_indexers: Dict[str, TokenIndexer] = None,
+                 embeddings = 'default', lazy=False, spl=True) -> None:
         super().__init__(lazy=lazy)
         self.embeddings = embeddings
         self.get_token_indexer(token_indexers)
         self._token_indexers = self.token_indexers
+        self.spl = spl
 
     def tokenize(self, s: str):
         if self.embeddings == 'bert':
             return self.token_indexers["bert"].wordpiece_tokenizer(s)[:128 - 2]
         else:
-            return s.split()
+            tokens = s.split()
+            if self.spl:
+                tokens = ['<CLS>'] + tokens
+            return tokens
 
     def get_token_indexer(self, token_indexers):
         self.token_indexers = token_indexers or {"tokens": SingleIdTokenIndexer()}

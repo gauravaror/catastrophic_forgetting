@@ -128,7 +128,7 @@ few_data = {}
 vocabulary = {}
 
 for task in tasks:
-  utils.load_dataset(task, train_data, dev_data, few_data, args.embeddings)
+  utils.load_dataset(task, train_data, dev_data, few_data, args.embeddings, special=True)
   if args.small:
     train_data[task] = train_data[task][:args.small]
 
@@ -182,7 +182,7 @@ run_name=args.storage_prefix + args.run_name+"_"+str(args.layers)+"_hdim_"+str(a
 
 vocab = Vocabulary.from_instances(joint_train + joint_dev)
 
-#vocab.print_statistics()
+vocab.print_statistics()
 
 word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim, rq_grad=args.train_embeddings)
 
