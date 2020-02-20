@@ -6,6 +6,8 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('path', type=str, help="Aggregation path")
+parser.add_argument('--port', type=int, help="Port to start dash board on ", default=8050)
+parser.add_argument('--metric', type=str, help="Port to start dash board on ", default='standard_evaluate')
 args = parser.parse_args()
 
 import pandas as pd
@@ -25,11 +27,11 @@ class LoadDatasets:
     def __init__(self, args, tasks=['trec', 'sst', 'cola', 'subjectivity']):
         self.args = args
         # Standard Evaluate path
-        self.se_path = 'standard_evaluate/'
+        self.se_path = args.metric + '/'
         # Forgetting Metric Path
         self.fm_path = 'forgetting_metic/standard_total.df'
         if args.path:
-            self.se_path = args.path + '/evaluate_csv_agg/aggregates/standard_evaluate/'
+            self.se_path = args.path + '/evaluate_csv_agg/aggregates/'+ args.metric +'/'
             self.fm_path = args.path + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df'
         self.df = {}
         self.tasks = tasks
@@ -45,7 +47,10 @@ class LoadDatasets:
         output = []
         for task in self.tasks:
             output.extend(list(self.df[task][attr].unique()))
-        return list(set(output))
+        output = list(set(output))
+        if attr == 'code':
+            output.append('all')
+        return output
 
 dataset = LoadDatasets(args)
 
@@ -136,7 +141,7 @@ def update_graph(code, exper, hdim, layer, tasks):
             index += 1
 
     def filter_df(this_df):
-        this_df = this_df[this_df['code'] == code]
+        this_df = this_df[this_df['code'] == code] if not code == 'all' else this_df
         this_df = this_df[this_df.exper.isin(exper)]
         this_df = this_df[this_df.hdim.isin(hdim)]
         this_df = this_df[this_df.layer.isin(layer)]
@@ -145,6 +150,8 @@ def update_graph(code, exper, hdim, layer, tasks):
             prefix = get_prefix(this_df)
         this_df.exper = this_df.exper.str.replace(prefix, '')
         this_df.exper = this_df.exper.str.replace('_exper', '')
+        if code == 'all':
+            this_df = this_df.groupby(['hdim', 'exper', 'layer']).mean().reset_index()
         return this_df
 
 
@@ -180,4 +187,4 @@ def update_graph(code, exper, hdim, layer, tasks):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=args.port)
