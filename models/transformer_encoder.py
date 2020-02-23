@@ -57,7 +57,7 @@ class TransformerRepresentation(nn.Module):
         #print(output.shape, torch.mean(output, dim=1).shape)
         #seq_output = output[:,0]
         #seq_output = self.pooler(seq_output)
-        return output.max(dim=1)[0]
+        return output.mean(dim=1)
 
 class PositionalEncoding(nn.Module):
 
