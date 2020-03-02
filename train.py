@@ -7,38 +7,17 @@ import pandas as pd
 import random
 
 from models.utils import get_catastrophic_metric
-from allennlp.data.dataset_readers import DatasetReader
-from models.sst import StanfordSentimentTreeBankDatasetReader1
 from allennlp.data.vocabulary import Vocabulary
 from models.save_weights import SaveWeights
 
-from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
-from allennlp.modules.token_embedders import Embedding
-from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder, PytorchSeq2SeqWrapper
-from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrapper
-from allennlp.models import Model
-
-from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
-from models.cnn_encoder import CnnEncoder
-from models.encoder_IDA import EncoderRNN
-from models.hashedIDA import HashedMemoryRNN
-from models.transformer_encoder import TransformerRepresentation
-
-from models.deep_pyramid_cnn import DeepPyramidCNN
 from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
-from allennlp.modules.seq2seq_encoders.multi_head_self_attention import MultiHeadSelfAttention
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
-from models.classifier import MainClassifier
-from models.other_classifier import Seq2SeqClassifier, MajorityClassifier
-from models.mean_classifier import MeanClassifier
-from models.trec import TrecDatasetReader
-from models.subjectivity import SubjectivityDatasetReader
-from models.CoLA import CoLADatasetReader
-from models.ag import AGNewsDatasetReader
+
+import models.net as net
 import models.utils as utils
 import argparse
 #from torch.utils.tensorboard import SummaryWriter
@@ -59,6 +38,7 @@ parser.add_argument('--diff_class', action='store_true', help="Do training with 
 
 # CNN Params
 parser.add_argument('--cnn', action='store_true', help="Use CNN")
+parser.add_argument('--lstm', action='store_true', help="Use LSTM architecture")
 parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
 parser.add_argument('--ngram_filter', type=int, default=2, help="Ngram filter size to send in")
 parser.add_argument('--stride', type=int, default=1, help="Strides to use for CNN")
@@ -190,90 +170,7 @@ word_embedding_dim = word_embeddings.get_output_dim()
 if args.task_embed:
     word_embedding_dim += 1
 
-experiment="lstm"
-print("CNN",args.cnn)
-if args.cnn:
-  experiment="cnn_"
-  experiment += args.pooling
-  ngrams_f=(args.ngram_filter,)
-  strides=(args.stride,)
-  cnn = CnnEncoder(embedding_dim=word_embedding_dim,
-                   num_layers=args.layers,
-		   ngram_filter_sizes=ngrams_f,
-		   strides=strides,
-		   num_filters=args.h_dim,
-                   pooling=args.pooling)
-  if args.pyramid:
-      experiment="dpcnn"
-      cnn = DeepPyramidCNN(embedding_dim=word_embedding_dim,
-                       num_layers=args.layers,
-		       ngram_filter_sizes=ngrams_f,
-		       num_filters=args.h_dim)
-  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed, args=args, e_dim=word_embedding_dim)
-  if args.mean_classifier:
-    print("We are on journey to use the mean classifier now.")
-    model = MeanClassifier(word_embeddings, cnn, vocab)
-elif args.seq2vec or args.majority:
-  experiment="lstm"
-  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(word_embedding_dim, args.h_dim,
-					   num_layers=args.layers,
-					   dropout=args.dropout,
-					   bidirectional=args.bidirectional,
-					   batch_first=True))
-  if args.gru:
-    experiment="gru"
-    lstm = PytorchSeq2VecWrapper(torch.nn.GRU( word_embedding_dim, args.h_dim,
-					   num_layers=args.layers,
-					   dropout=args.dropout,
-					   bidirectional=args.bidirectional,
-					   batch_first=True))
-  if args.hashed:
-    experiment="embedding_access_memory"
-    memory_embeddings = utils.get_embedder("glove", vocab, word_embedding_dim, rq_grad=False)
-    lstm = HashedMemoryRNN(word_embedding_dim, args.h_dim,
-                      inv_temp=args.inv_temp,
-                      mem_size=args.mem_size,
-                      num_layers=args.layers,
-                      dropout=args.dropout,
-                      bidirectional=args.bidirectional,
-                      batch_first=True,
-		      memmory_embed=memory_embeddings)
-  if args.IDA:
-    experiment="IDA"
-    lstm = EncoderRNN(word_embedding_dim, args.h_dim,
-                      inv_temp=args.inv_temp,
-                      mem_size=args.mem_size,
-                      num_layers=args.layers,
-                      dropout=args.dropout,
-                      bidirectional=args.bidirectional,
-                      batch_first=True)
-  if args.transformer:
-    experiment="transformer"
-    lstm = TransformerRepresentation(word_embedding_dim, # Embedding Dimension
-                      8, # Number of heads to use in embeddings.
-                      args.h_dim, # Number of hidden units
-                      args.layers, # Number of Layers
-                      dropout=args.dropout,
-                      use_memory=args.use_memory,
-                      mem_size=args.mem_size,
-                      mem_context_size=args.mem_context_size,
-                      use_binary=args.use_binary)
-  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc,
-                         task_embed=args.task_embed, args=args, e_dim=word_embedding_dim)
-  if args.majority:
-    model = MajorityClassifier(vocab)
-else:
-  experiment="selfattention"
-  attentionseq = StackedSelfAttentionEncoder(
-					   input_dim=word_embedding_dim,
-					   hidden_dim=args.h_dim,
-					   projection_dim=128,
-					   feedforward_hidden_dim=128,
-					   num_layers=args.layers,
-					   num_attention_heads=8,
-					   attention_dropout_prob=args.dropout)
-  model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
-
+model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args)
 print("Running Experiment " , experiment)
 
 if not args.no_save_weight:
