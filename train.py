@@ -20,6 +20,7 @@ from allennlp.common.params import Params
 import models.net as net
 from models.args import get_args
 import models.utils as utils
+import models.evaluate as eva
 #from torch.utils.tensorboard import SummaryWriter
 
 majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0, 'ag': 0.25, 'sst_2c': 0.51}
@@ -193,86 +194,20 @@ else:
       trainer._metric_tracker.clear()
     if not args.majority:
       metrics = trainer.train()
-      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), metrics['training_epochs'], timestep=tid)
+      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i),
+                            metrics['training_epochs'], timestep=tid)
     old_task_data = train_data[i]
-    for j in evaluate_tasks:
-      print("\nEvaluating ", j)
-      sys.stdout.flush()
-      if args.diff_class:
-        model.set_task(j)
-        # This batch size of 10000 is hack to get activation while doing evaluation.
-        iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
-        iterator1.index_with(vocabulary[j])
-        if args.few_shot:
-          met = evaluate(model=model,
-	                    instances=dev_data[j],
-	                    data_iterator=iterator1,
-	                    cuda_device=devicea,
-	                    batch_weight_key=None)
-          print("Now few_shot training ", j, "Metric before ", met," \n")
-          for name, param in model.named_parameters():
-            print("Named parameters for freezing ", name)
-            if name.startswith('encoder') or name.startswith('word_embeddings'):
-              print("Freezing param ", name)
-              param.requires_grad = False
-          trainer.model = model
-          trainer.train_data = few_data[j]
-          trainer._validation_data = few_data[j]
-          trainer.iterator = iterator1
-          trainer._metric_tracker.clear()
-          print("Doing few shot traing current things is ", trainer._metric_tracker._epochs_with_no_improvement, trainer._metric_tracker._epoch_number)
-          trainer._num_epochs = 10
-          trainer.train()
-          # Back to hack of 10000 to get all the activations together as
-          trainer._num_epochs = args.epochs
-      if args.mean_classifier:
-        model.adding_mean_representation = True
-        metric = evaluate(model=model,
-	                   instances=few_data[j],
-	                   data_iterator=iterator1,
-	                   cuda_device=devicea,
-	                   batch_weight_key=None)
-        model.adding_mean_representation = False
-        model.get_mean_prune_sampler()
-        model.evaluate_using_mean = True
-      print("Now evaluating ", j, len(dev_data[j]))
-      metric = evaluate(model=model,
-	 instances=dev_data[j],
-	 data_iterator=iterator1,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
-
-      # Take first 500 instances for evaluating activations.
-      if not args.no_save_weight:
-         iterator1 = BucketIterator(batch_size=500, sorting_keys=[("tokens", "num_tokens")])
-         iterator1.index_with(vocabulary[j])
-         evaluate(model=model,
-	     instances=dev_data[j][:500],
-	     data_iterator=iterator1,
-	     cuda_device=devicea,
-	     batch_weight_key=None)
-         save_weight.add_activations(model,i,j)
-
-      if args.mean_classifier:
-        model.evaluate_using_mean = False
-
-      if j == 'cola':
-          metric['metric'] = metric['average']
-      else:
-          metric['metric'] = metric['accuracy']
-
-      standard_metric = (float(metric['metric']) - majority[j]) / (sota[j] - majority[j])
-      if j not in overall_metrics:
-        overall_metrics[j] = {}
-        overall_metrics[j][i] = metric
-        ostandard_metrics[j] = {}
-        ostandard_metrics[j][i] = standard_metric
-      else:
-        overall_metrics[j][i] = metric
-        ostandard_metrics[j][i] = standard_metric
-      print("Adding timestep to trainer",tid, tasks, j, float(metric['metric']))
-      trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['metric']), timestep=tid)
-      trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j), standard_metric, timestep=tid)
+    ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
+                                                             model, args, save_weight)
+    overall_metrics[i] = ometric
+    ostandard_metrics[i] = smetric
+    for j in smetric.keys():
+        trainer._tensorboard.add_train_scalar("evaluate/"+str(j),
+                                              float(ometric[j]['metric']),
+                                              timestep=tid)
+        trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j),
+                                              smetric[j],
+                                              timestep=tid)
   # Calculate the catastrophic forgetting and add it into tensorboard before
   # closing the tensorboard
   c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
@@ -287,46 +222,6 @@ else:
 
   trainer._tensorboard._train_log.close()
 
-if not args.diff_class:
-  print("\n Joint Evaluating ")
-  sys.stdout.flush()
-  overall_metric = evaluate(model=model,
-	 instances=joint_dev,
-	 data_iterator=iterator,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
-
 print("Training Results are on these Arguments", args)
+eva.print_evaluate_stats(train, evaluate_tasks, args, overall_metrics, task_code, experiment)
 
-print("Accuracy and Loss")
-header="Accuracy"
-for i in evaluate_tasks:
-  header = header + "\t\t" + i
-insert_in_pandas_list=[]
-print(header)
-for d in train:
-  print_data=d
-  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
-  i=0
-  for k in evaluate_tasks:
-    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["metric"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["metric"]
-  insert_in_pandas_list.append(insert_pandas_dict)
-  print(print_data)
-print("\n\n")
-initial_path="dfs/Results" + args.run_name
-if not args.seq2vec:
-  intial_path="dfs_att/Results_selfattention" + args.run_name
-if args.cnn:
-  initial_path="dfs/Results_CNN_" + args.run_name
-if args.gru:
-  initial_path="dfs/Results_GRU_" + args.run_name
-
-df=pd.DataFrame(insert_in_pandas_list)
-
-if args.few_shot:
-  initial_path += ('_train_' + train_code)
-  initial_path += ('_evaluate_' + evaluate_code)
-
-df.to_pickle(path=str(initial_path+task_code+"_"+str(args.layers)+"_"+str(args.h_dim)+"_"+str(args.tryno)+".df"))
-#print(joint_print_data)

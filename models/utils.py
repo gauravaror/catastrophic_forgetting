@@ -210,7 +210,7 @@ def get_catastrophic_metric(tasks, metrics):
 
      for i,task in enumerate(tasks[:-1]):
         # Calculate forgetting between first trained and last trained task
-        current_forgetting = (metrics[tasks[i]][tasks[i]] - metrics[tasks[i]][last_task])
+        current_forgetting = (metrics[tasks[i]][tasks[i]] - metrics[last_task][tasks[i]])
         # Normalize it by it's initial value.
         use_metric = metrics[tasks[i]][tasks[i]]
         if abs(use_metric) == 0:
