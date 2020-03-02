@@ -23,6 +23,9 @@ import models.utils as utils
 import models.evaluate as eva
 #from torch.utils.tensorboard import SummaryWriter
 
+from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
+from ignite.metrics import Accuracy, Loss
+
 args = get_args()
 
 #writer=SummaryWriter(run_name)
@@ -122,20 +125,33 @@ if torch.cuda.is_available():
 
 overall_metrics = {}
 ostandard_metrics = {}
-trainer = Trainer(model=model,
-              optimizer=optimizer,
-              iterator=iterator,
-              train_dataset=train_data[i],
-              validation_dataset=dev_data[i],
-              validation_metric="-loss",
-              num_serialized_models_to_keep=1,
-              model_save_interval=1,
-              serialization_dir=run_name,
-              histogram_interval=100,
-              patience=args.patience,
-              num_epochs=args.epochs,
-              cuda_device=devicea)
-old_task_data = None
+
+
+
+def update(engine, batch):
+    model.train()
+    optimizer.zero_grad()
+    #batch  = move_to_device(batch, devicea)
+    output = model(batch['tokens'], batch['label'])
+    output["loss"].backward()
+    optimizer.step()
+    return output
+
+itrainer = Engine(update)
+
+@itrainer.on(Events.ITERATION_COMPLETED(every=2))
+def log_training(engine):
+    batch_loss = engine.state.output['loss']
+    lr = optimizer.param_groups[0]['lr']
+    e = engine.state.epoch
+    n = engine.state.max_epochs
+    i = engine.state.iteration
+    print("Epoch {}/{} : {} - batch loss: {}, lr: {}".format(e, n, i, batch_loss, lr))
+
+@itrainer.on(Events.EPOCH_COMPLETED)
+def train_epoch_complete(engine):
+    print("Training epoch complete")
+
 for tid,i in enumerate(train,1):
     print("\nTraining task ", i)
     sys.stdout.flush()
@@ -150,13 +166,10 @@ for tid,i in enumerate(train,1):
     else:
           normaliser  = 1
     model.set_task(i, training=training_, normaliser=normaliser)
-    trainer._num_epochs = args.epochs
     iterator.index_with(vocabulary[i])
-    trainer.train_data = train_data[i]
-    trainer._validation_data = dev_data[i]
-    trainer.model = model
-    trainer.iterator = iterator
-    trainer._validation_iterator = iterator
+    raw_train_generator = iterator(dev_data[i], num_epochs=args.epochs)
+    itrainer.run(raw_train_generator, max_epochs=args.epochs, epoch_length=1)
+    """
     if i == 'cola':
           trainer._validation_metric = 'average'
           trainer._metric_tracker._should_decrease = False
@@ -170,11 +183,12 @@ for tid,i in enumerate(train,1):
       metrics = trainer.train()
       trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i),
                             metrics['training_epochs'], timestep=tid)
-    old_task_data = train_data[i]
+    """
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
                                                              model, args, save_weight)
     overall_metrics[i] = ometric
     ostandard_metrics[i] = smetric
+    """
     for j in smetric.keys():
         trainer._tensorboard.add_train_scalar("evaluate/"+str(j),
                                               float(ometric[j]['metric']),
@@ -182,19 +196,22 @@ for tid,i in enumerate(train,1):
         trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j),
                                               smetric[j],
                                               timestep=tid)
+    """
 # Calculate the catastrophic forgetting and add it into tensorboard before
 # closing the tensorboard
 c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
 print("Forgetting Results", c_standard_metric)
+"""
 for tid,task in enumerate(c_standard_metric, 1):
   trainer._tensorboard.add_train_scalar("forgetting_metric/standard_" + task,
                                         c_standard_metric[task],
                                         timestep=tid)
-if not args.no_save_weight:
+"""
+#if not args.no_save_weight:
   #save_weight.write_activations(overall_metrics, trainer, tasks)
-  save_weight.get_task_tsne(trainer)
+#  save_weight.get_task_tsne(trainer)
 
-trainer._tensorboard._train_log.close()
+#trainer._tensorboard._train_log.close()
 
 print("Training Results are on these Arguments", args)
 eva.print_evaluate_stats(train, evaluate_tasks, args, overall_metrics, task_code, experiment)

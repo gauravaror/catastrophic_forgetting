@@ -125,7 +125,6 @@ class MainClassifier(Model):
       self.accuracy(tag_logits, label)
       if self.args.ewc and self.training:
           output["loss"] = self.loss_function(tag_logits, label)
-
           output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
           #self.ewc.loss_function(self.get_current_taskid(), tag_logits, label)
       else:

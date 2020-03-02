@@ -73,7 +73,7 @@ def print_evaluate_stats(train, evaluate_tasks, args, overall_metrics, task_code
       insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
       i=0
       for k in evaluate_tasks:
-        print_data = print_data + "\t\t" + str(overall_metrics[d][k]["metric"])
+        print_data = print_data + "\t\t" + '{:.2}'.format(overall_metrics[d][k]["metric"])
         insert_pandas_dict[k] = overall_metrics[d][k]["metric"]
       insert_in_pandas_list.append(insert_pandas_dict)
       print(print_data)
