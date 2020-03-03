@@ -216,7 +216,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, help="main path for tensorboard files", default=os.getcwd())
-    parser.add_argument("--subpaths", type=str, action='append', help="subpath sturctures", default=["log/train"])
+    parser.add_argument("--subpaths", type=str, action='append', help="subpath sturctures", default=[""])
     parser.add_argument("--allowed_keys", type=str, action='append', help="Keys to aggregate on")
     parser.add_argument("--operations", type=str, action='append', help="Default operations to perform.")
     parser.add_argument("--store_path", type=str, help="Default store path for arguments.")
