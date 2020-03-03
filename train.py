@@ -27,6 +27,7 @@ import models.evaluate as eva
 from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss
 from ignite.contrib.handlers.tqdm_logger import ProgressBar
+from ignite.handlers import EarlyStopping, Checkpoint, DiskSaver, global_step_from_engine
 
 args = get_args()
 
@@ -139,7 +140,20 @@ def update(engine, batch):
     optimizer.step()
     return output
 
+def validate(engine, batch):
+    model.eval()
+    batch = move_to_device(batch, devicea)
+    model.get_metrics()
+    output = model(batch['tokens'], batch['label'])
+    current_metric = model.get_metrics()
+    engine.state.metric = current_metric
+    engine.state.metric['loss'] = output['loss']
+
+
+
 itrainer = Engine(update)
+ievaluator = Engine(validate)
+
 
 @itrainer.on(Events.COMPLETED(every=2))
 def log_training(engine):
@@ -153,8 +167,47 @@ def log_training(engine):
 
 pbar = ProgressBar()
 pbar.attach(itrainer, ['loss'])
+current_task = None
+
+@itrainer.on(Events.EPOCH_COMPLETED)
+def run_validation(engine):
+    val_iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
+    val_iterator.index_with(vocabulary[current_task])
+    raw_val_generator = iterator(dev_data[current_task], num_epochs=1)
+    val_groups = list(raw_val_generator)
+    model.get_metrics(True)
+    ievaluator.run(val_groups)
+    batch_loss = ievaluator.state.metric['loss']
+    metric = ievaluator.state.metric
+    lr = optimizer.param_groups[0]['lr']
+    e = engine.state.epoch
+    n = engine.state.max_epochs
+    i = engine.state.iteration
+    print("Val Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
+
+
+def score_function(engine):
+    metric = engine.state.metric['accuracy']
+    if current_task == 'cola':
+        metric = engine.state.metric['average']
+    return metric
+
+early_stop_metric = EarlyStopping(patience=args.patience, score_function=score_function, trainer=itrainer)
+ievaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
+
+to_save = {'model': model}
+disk_saver = DiskSaver(run_name, create_dir=True)
+best_save = Checkpoint(to_save,
+                       disk_saver,
+                       n_saved=1,
+                       filename_prefix='best',
+                       score_function=score_function,
+                       score_name="val_best",
+                       global_step_transform=global_step_from_engine(itrainer))
+ievaluator.add_event_handler(Events.COMPLETED, best_save)
 
 for tid,i in enumerate(train,1):
+    current_task = i
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.pad_memory:
@@ -173,6 +226,11 @@ for tid,i in enumerate(train,1):
     raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
     itrainer.run(groups, max_epochs=args.epochs)
+    print("Best of last task", best_save.last_checkpoint)
+    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
+    best_save._saved = []
+    early_stop_metric.counter = 0
+    early_stop_metric.best_score = None
     """
     if i == 'cola':
           trainer._validation_metric = 'average'
