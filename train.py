@@ -25,6 +25,7 @@ import models.evaluate as eva
 
 from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss
+from ignite.contrib.handlers.tqdm_logger import ProgressBar
 
 args = get_args()
 
@@ -139,18 +140,18 @@ def update(engine, batch):
 
 itrainer = Engine(update)
 
-@itrainer.on(Events.ITERATION_COMPLETED(every=2))
+@itrainer.on(Events.COMPLETED(every=2))
 def log_training(engine):
     batch_loss = engine.state.output['loss']
+    metric = model.get_metrics()
     lr = optimizer.param_groups[0]['lr']
     e = engine.state.epoch
     n = engine.state.max_epochs
     i = engine.state.iteration
-    print("Epoch {}/{} : {} - batch loss: {}, lr: {}".format(e, n, i, batch_loss, lr))
+    print("Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
 
-@itrainer.on(Events.EPOCH_COMPLETED)
-def train_epoch_complete(engine):
-    print("Training epoch complete")
+pbar = ProgressBar()
+pbar.attach(itrainer, ['loss'])
 
 for tid,i in enumerate(train,1):
     print("\nTraining task ", i)
@@ -166,9 +167,11 @@ for tid,i in enumerate(train,1):
     else:
           normaliser  = 1
     model.set_task(i, training=training_, normaliser=normaliser)
+    iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocabulary[i])
-    raw_train_generator = iterator(dev_data[i], num_epochs=args.epochs)
-    itrainer.run(raw_train_generator, max_epochs=args.epochs, epoch_length=1)
+    raw_train_generator = iterator(dev_data[i], num_epochs=1)
+    groups = list(raw_train_generator)
+    itrainer.run(groups, max_epochs=args.epochs)
     """
     if i == 'cola':
           trainer._validation_metric = 'average'
