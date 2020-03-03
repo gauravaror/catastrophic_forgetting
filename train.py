@@ -16,6 +16,7 @@ from allennlp.training.trainer import Trainer
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
+from allennlp.nn.util import move_to_device
 
 import models.net as net
 from models.args import get_args
@@ -132,7 +133,7 @@ ostandard_metrics = {}
 def update(engine, batch):
     model.train()
     optimizer.zero_grad()
-    #batch  = move_to_device(batch, devicea)
+    batch  = move_to_device(batch, devicea)
     output = model(batch['tokens'], batch['label'])
     output["loss"].backward()
     optimizer.step()
@@ -169,7 +170,7 @@ for tid,i in enumerate(train,1):
     model.set_task(i, training=training_, normaliser=normaliser)
     iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocabulary[i])
-    raw_train_generator = iterator(dev_data[i], num_epochs=1)
+    raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
     itrainer.run(groups, max_epochs=args.epochs)
     """
