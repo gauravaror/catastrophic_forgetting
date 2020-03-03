@@ -117,6 +117,10 @@ class SaveWeights:
         return data
     elif self.encoder_type.startswith('transformer'):
         return data
+    elif self.encoder_type.startswith('mlp'):
+        return data
+    else:
+        raise "Weight type not added in get_arr_rep"
 #.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):
