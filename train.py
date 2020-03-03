@@ -29,6 +29,9 @@ from ignite.metrics import Accuracy, Loss
 from ignite.contrib.handlers.tqdm_logger import ProgressBar
 from ignite.handlers import EarlyStopping, Checkpoint, DiskSaver, global_step_from_engine
 
+from tensorboardX import SummaryWriter
+
+
 args = get_args()
 
 #writer=SummaryWriter(run_name)
@@ -120,6 +123,9 @@ optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.
 
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
+
+writer = SummaryWriter(logdir=run_name)
+writer.add_text("args", str(args))
 
 iterator.index_with(vocab)
 devicea = -1
@@ -250,30 +256,26 @@ for tid,i in enumerate(train,1):
                                                              model, args, save_weight)
     overall_metrics[i] = ometric
     ostandard_metrics[i] = smetric
-    """
     for j in smetric.keys():
-        trainer._tensorboard.add_train_scalar("evaluate/"+str(j),
+        writer.add_scalar("evaluate/"+str(j),
                                               float(ometric[j]['metric']),
-                                              timestep=tid)
-        trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j),
+                                              tid)
+        writer.add_scalar("standard_evaluate/"+str(j),
                                               smetric[j],
-                                              timestep=tid)
-    """
+                                              tid)
 # Calculate the catastrophic forgetting and add it into tensorboard before
 # closing the tensorboard
 c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
 print("Forgetting Results", c_standard_metric)
-"""
 for tid,task in enumerate(c_standard_metric, 1):
-  trainer._tensorboard.add_train_scalar("forgetting_metric/standard_" + task,
+  writer.add_scalar("forgetting_metric/standard_" + task,
                                         c_standard_metric[task],
-                                        timestep=tid)
-"""
-#if not args.no_save_weight:
-  #save_weight.write_activations(overall_metrics, trainer, tasks)
-#  save_weight.get_task_tsne(trainer)
+                                        tid)
+if not args.no_save_weight:
+  #save_weight.write_activations(overall_metrics, writer, tasks)
+  save_weight.get_task_tsne(writer)
 
-#trainer._tensorboard._train_log.close()
+writer.close()
 
 print("Training Results are on these Arguments", args)
 eva.print_evaluate_stats(train, evaluate_tasks, args, overall_metrics, task_code, experiment)
