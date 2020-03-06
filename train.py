@@ -142,6 +142,11 @@ def update(engine, batch):
     optimizer.zero_grad()
     batch  = move_to_device(batch, devicea)
     output = model(batch['tokens'], batch['label'])
+    if args.mlp:
+        loss = model.encoder.get_sharpened_loss(10)
+        print("Loss of this batch mlp sharp ", loss)
+        loss.backward()
+        output = model(batch['tokens'], batch['label'])
     output["loss"].backward()
     optimizer.step()
     return output
@@ -237,21 +242,6 @@ for tid,i in enumerate(train,1):
     best_save._saved = []
     early_stop_metric.counter = 0
     early_stop_metric.best_score = None
-    """
-    if i == 'cola':
-          trainer._validation_metric = 'average'
-          trainer._metric_tracker._should_decrease = False
-          trainer.validation_metric = '+average'
-    else:
-          trainer._validation_metric = 'loss'
-          trainer._metric_tracker._should_decrease = True
-          trainer.validation_metric = '-loss'
-    trainer._metric_tracker.clear()
-    if not args.majority:
-      metrics = trainer.train()
-      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i),
-                            metrics['training_epochs'], timestep=tid)
-    """
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
                                                              model, args, save_weight)
     overall_metrics[i] = ometric
@@ -279,4 +269,3 @@ writer.close()
 
 print("Training Results are on these Arguments", args)
 eva.print_evaluate_stats(train, evaluate_tasks, args, overall_metrics, task_code, experiment)
-
