@@ -235,6 +235,7 @@ for tid,i in enumerate(train,1):
     print("Best of last task", best_save.last_checkpoint)
     best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
     best_save._saved = []
+    itrainer.state.epoch = 0
     early_stop_metric.counter = 0
     early_stop_metric.best_score = None
     """
