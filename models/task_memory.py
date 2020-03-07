@@ -10,7 +10,7 @@ class TaskMemory(nn.Module):
         self.task_to_mem_id = {}
         self.mem_id_to_task = {}
         self.memory_module = nn.ModuleList()
-        self.loss_function = nn.MSELoss(reduction='mean')
+        self.loss_function = nn.MSELoss(reduction='sum')
 
     def add_task_memory(self, task_id):
         self.task_to_mem_id[task_id] = self.current_index
@@ -24,6 +24,10 @@ class TaskMemory(nn.Module):
         index_upto = self.task_to_mem_id[task] + 1
         for tid in range(index_upto):
             task_identifier = self.mem_id_to_task[tid]
+            if task_identifier == task:
+                self.memory_module[tid].require_grad = True
+            else:
+                self.memory_module[tid].require_grad = False
             self.mem[task_identifier] = self.memory_module[tid](input_embeddings)
         output = torch.cat([input_embeddings, self.mem[task]], dim=input_embeddings.dim()-1)
         return output
@@ -41,6 +45,7 @@ class TaskMemory(nn.Module):
         for i in range(index_upto):
             this_task_id = self.mem_id_to_task[i]
             mem_con = self.mem[this_task_id]
-            loss += self.loss_function(curr_memory, mem_con)
-        print("Task memory loss", loss)
+            new_loss = self.loss_function(curr_memory, mem_con)
+            print("This task", this_task_id, new_loss)
+            loss += new_loss
         return loss
