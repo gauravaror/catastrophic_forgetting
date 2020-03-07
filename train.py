@@ -120,6 +120,7 @@ if torch.cuda.is_available():
   model.cuda(0)
 
 optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.wdecay)
+sharp_optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), 0.1, args.wdecay)
 
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
@@ -135,20 +136,30 @@ if torch.cuda.is_available():
 overall_metrics = {}
 ostandard_metrics = {}
 
-
+train_sharpen = False
 
 def update(engine, batch):
     model.train()
     optimizer.zero_grad()
     batch  = move_to_device(batch, devicea)
     output = model(batch['tokens'], batch['label'])
-    if args.mlp:
-        loss = model.encoder.get_sharpened_loss(10)
-        print("Loss of this batch mlp sharp ", loss)
+    if train_sharpen:
+        sharp_optimizer.zero_grad()
+        loss = model.encoder.get_sharpened_loss(100)
+        #print("Loss of this batch mlp sharp ", loss)
+        engine.state.shape_loss = loss
         loss.backward()
+        sharp_optimizer.step()
+        sharp_optimizer.zero_grad()
         output = model(batch['tokens'], batch['label'])
-    output["loss"].backward()
-    optimizer.step()
+    else:
+        loss = model.encoder.get_sharpened_loss(20)
+        #print("Loss of this batch mlp sharp ", loss)
+        engine.state.shape_loss = loss
+        output = model(batch['tokens'], batch['label'])
+        loss += output["loss"]
+        loss.backward()
+        optimizer.step()
     return output
 
 def validate(engine, batch):
@@ -156,6 +167,10 @@ def validate(engine, batch):
     batch = move_to_device(batch, devicea)
     model.get_metrics()
     output = model(batch['tokens'], batch['label'])
+    engine.state.sharp_loss = 0
+    if args.mlp:
+        sharp_loss = model.encoder.get_sharpened_loss(20)
+        engine.state.sharp_loss = sharp_loss
     current_metric = model.get_metrics()
     engine.state.metric = current_metric
     engine.state.metric['loss'] = output['loss']
@@ -174,7 +189,7 @@ def log_training(engine):
     e = engine.state.epoch
     n = engine.state.max_epochs
     i = engine.state.iteration
-    print("Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
+    print("Epoch {}/{} : {} - patience {} batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, early_stop_metric.counter, batch_loss, lr, metric['accuracy'], metric['average']))
 
 pbar = ProgressBar()
 pbar.attach(itrainer, ['loss'])
@@ -182,6 +197,8 @@ current_task = None
 
 @itrainer.on(Events.EPOCH_COMPLETED)
 def run_validation(engine):
+    current_task = model.current_task
+    print("Evaluating", current_task)
     val_iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
     val_iterator.index_with(vocabulary[current_task])
     raw_val_generator = iterator(dev_data[current_task], num_epochs=1)
@@ -189,25 +206,28 @@ def run_validation(engine):
     model.get_metrics(True)
     ievaluator.run(val_groups)
     batch_loss = ievaluator.state.metric['loss']
+    sharp_loss = ievaluator.state.sharp_loss
+
     metric = ievaluator.state.metric
     lr = optimizer.param_groups[0]['lr']
     e = engine.state.epoch
     n = engine.state.max_epochs
     i = engine.state.iteration
-    print("Val Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
-
+    print("Val Epoch {}/{} : {} - patience  {} batch loss: {}, sharp loss: {} lr: {}, accuracy: {}, average: {} ".format(e, n, i, early_stop_metric.counter, batch_loss, sharp_loss, lr, metric['accuracy'], metric['average']))
 
 def score_function(engine):
     metric = engine.state.metric['accuracy']
     if current_task == 'cola':
         metric = engine.state.metric['average']
+    if train_sharpen:
+        metric = -engine.state.sharp_loss
     return metric
 
 early_stop_metric = EarlyStopping(patience=args.patience, score_function=score_function, trainer=itrainer)
 ievaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
 
 to_save = {'model': model}
-disk_saver = DiskSaver(run_name, create_dir=True)
+disk_saver = DiskSaver(run_name, create_dir=True,require_empty=args.require_empty)
 best_save = Checkpoint(to_save,
                        disk_saver,
                        n_saved=1,
@@ -216,6 +236,14 @@ best_save = Checkpoint(to_save,
                        score_name="val_best",
                        global_step_transform=global_step_from_engine(itrainer))
 ievaluator.add_event_handler(Events.COMPLETED, best_save)
+
+def reset_state():
+    print("Best of last task", best_save.last_checkpoint)
+    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
+    best_save._saved = []
+    early_stop_metric.counter = 0
+    early_stop_metric.best_score = None
+    itrainer.state.epoch = 0
 
 for tid,i in enumerate(train,1):
     current_task = i
@@ -236,12 +264,13 @@ for tid,i in enumerate(train,1):
     iterator.index_with(vocabulary[i])
     raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
+    if args.sharpen and args.mlp:
+        train_sharpen = True
+        itrainer.run(groups, max_epochs=10)
+        train_sharpen = False
+        reset_state()
     itrainer.run(groups, max_epochs=args.epochs)
-    print("Best of last task", best_save.last_checkpoint)
-    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
-    best_save._saved = []
-    early_stop_metric.counter = 0
-    early_stop_metric.best_score = None
+    reset_state()
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
                                                              model, args, save_weight)
     overall_metrics[i] = ometric

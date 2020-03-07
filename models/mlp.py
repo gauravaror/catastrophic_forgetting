@@ -18,7 +18,7 @@ class MLP(Seq2VecEncoder):
         self.layers = num_layers
         self.linears = nn.modules.container.ModuleList()
         self.activation = nn.Sigmoid()
-        self.loss_sharpening = nn.L1Loss(reduction='mean')
+        self.loss_sharpening = nn.MSELoss(reduction='mean')
         self.alpha = alpha_sharp
         self.linears.append(nn.Linear(self.emb_dim, self.hdim))
         for i in range(self.layers-1):
@@ -38,6 +38,9 @@ class MLP(Seq2VecEncoder):
         values, indexes = torch.topk(sharp_layer, num_sharp)
         sharp_mask = torch.zeros(sharp_layer.shape)
         unsharp_mask = torch.ones(sharp_layer.shape)
+        if torch.cuda.is_available():
+            sharp_mask = sharp_mask.cuda()
+            unsharp_mask = unsharp_mask.cuda()
         sharp_mask[:,:,indexes] = 1
         unsharp_mask[:,:,indexes] = 0
         sharp_elem = sharp_layer*sharp_mask

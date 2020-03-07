@@ -14,6 +14,8 @@ def get_args():
     parser.add_argument('--cnn', action='store_true', help="Use CNN")
     parser.add_argument('--mlp', action='store_true', help="Use Multi Layer Preceptron")
     parser.add_argument('--alpha', type=float, default=0.2, help="Sharpining constant used for Multi Layer Preceptron")
+    parser.add_argument('--sharpen', action='store_true', help="Enable Sharpening currently only supported by Multi Layer Preceptron")
+    parser.add_argument('--require_empty', action='store_false', help="Enable required empty for checkpointing")
     parser.add_argument('--lstm', action='store_true', help="Use LSTM architecture")
     parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
     parser.add_argument('--ngram_filter', type=int, default=2, help="Ngram filter size to send in")
