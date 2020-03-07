@@ -202,7 +202,7 @@ early_stop_metric = EarlyStopping(patience=args.patience, score_function=score_f
 ievaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
 
 to_save = {'model': model}
-disk_saver = DiskSaver(run_name, create_dir=True)
+disk_saver = DiskSaver(run_name, create_dir=True, require_empty=args.require_empty)
 best_save = Checkpoint(to_save,
                        disk_saver,
                        n_saved=1,
