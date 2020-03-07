@@ -19,6 +19,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
+from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
 from models.transformer_encoder import PositionalEncoding
 from models.ewc import EWC
@@ -40,7 +41,6 @@ class MainClassifier(Model):
     self.tasks_vocabulary = {"default": vocab}
     self.current_task = "default"
     self.num_task = 0
-    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))])
     self.task2id = { "default": 0 }
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
@@ -53,6 +53,9 @@ class MainClassifier(Model):
     self.task_encoder = TaskEncoding(self.e_dim) if task_embed else None
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
+    self.task_memory = TaskMemory(self.encoder.get_output_dim(), args.mem_size)
+    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.task_memory.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))])
+    self.use_task_memory  = True
     self._len_dataset = None
     if self.args.ewc:
         self.ewc = EWC(self)
@@ -61,10 +64,12 @@ class MainClassifier(Model):
      self.encoder.add_target_padding()
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
-    self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
     self.num_task = self.num_task + 1
     self.task2id[task_tag] = self.num_task
     self.tasks_vocabulary[task_tag] = vocab
+    self.classification_layers.append(torch.nn.Linear(in_features=self.task_memory.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
+    if self.use_task_memory:
+        self.task_memory.add_task_memory(task_tag)
 
   def set_ewc(self, mode=True):
       if mode:
@@ -117,6 +122,9 @@ class MainClassifier(Model):
         activations = output
     self.activations = activations
     self.labels = label
+
+    if self.use_task_memory:
+        encoder_out = self.task_memory(encoder_out, self.current_task)
     tag_logits = hidden2tag(encoder_out)
     output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
@@ -124,6 +132,8 @@ class MainClassifier(Model):
       self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
+      if self.use_task_memory:
+          output["loss"] += self.task_memory.get_memory_loss(self.current_task)
       if self.args.ewc and self.training:
           output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
           output["loss"].backward(retain_graph=True)
