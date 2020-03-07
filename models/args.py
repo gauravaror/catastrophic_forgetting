@@ -19,6 +19,7 @@ def get_args():
     parser.add_argument('--stride', type=int, default=1, help="Strides to use for CNN")
 
 
+    parser.add_argument('--require_empty', action="store_true", help="Require the folder to be empty")
     parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
     parser.add_argument('--layers', type=int, default=1, help="Number of layers")
     parser.add_argument('--dropout', type=float, default=0, help="Use dropout")

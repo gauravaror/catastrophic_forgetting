@@ -202,7 +202,7 @@ early_stop_metric = EarlyStopping(patience=args.patience, score_function=score_f
 ievaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
 
 to_save = {'model': model}
-disk_saver = DiskSaver(run_name, create_dir=True)
+disk_saver = DiskSaver(run_name, create_dir=True, require_empty=args.require_empty)
 best_save = Checkpoint(to_save,
                        disk_saver,
                        n_saved=1,
@@ -211,6 +211,14 @@ best_save = Checkpoint(to_save,
                        score_name="val_best",
                        global_step_transform=global_step_from_engine(itrainer))
 ievaluator.add_event_handler(Events.COMPLETED, best_save)
+
+def reset_state():
+    print("Best of last task", best_save.last_checkpoint)
+    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
+    best_save._saved = []
+    early_stop_metric.counter = 0
+    early_stop_metric.best_score = None
+    itrainer.state.epoch = 0
 
 for tid,i in enumerate(train,1):
     current_task = i
@@ -232,27 +240,7 @@ for tid,i in enumerate(train,1):
     raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
     itrainer.run(groups, max_epochs=args.epochs)
-    print("Best of last task", best_save.last_checkpoint)
-    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
-    best_save._saved = []
-    itrainer.state.epoch = 0
-    early_stop_metric.counter = 0
-    early_stop_metric.best_score = None
-    """
-    if i == 'cola':
-          trainer._validation_metric = 'average'
-          trainer._metric_tracker._should_decrease = False
-          trainer.validation_metric = '+average'
-    else:
-          trainer._validation_metric = 'loss'
-          trainer._metric_tracker._should_decrease = True
-          trainer.validation_metric = '-loss'
-    trainer._metric_tracker.clear()
-    if not args.majority:
-      metrics = trainer.train()
-      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i),
-                            metrics['training_epochs'], timestep=tid)
-    """
+    reset_state()
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
                                                              model, args, save_weight)
     overall_metrics[i] = ometric
