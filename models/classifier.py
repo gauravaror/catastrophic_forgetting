@@ -123,15 +123,11 @@ class MainClassifier(Model):
       _, preds = tag_logits.max(dim=1)
       self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
+      output["loss"] = self.loss_function(tag_logits, label)
       if self.args.ewc and self.training:
-          output["loss"] = self.loss_function(tag_logits, label)
           output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
-          #self.ewc.loss_function(self.get_current_taskid(), tag_logits, label)
-      else:
-          output["loss"] = self.loss_function(tag_logits, label)
-    if self.args.ewc and self.training:
-        output["loss"].backward(retain_graph=True)
-        self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
+          output["loss"].backward(retain_graph=True)
+          self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
