@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import Linear
 from overrides import overrides
 from allennlp.modules.seq2vec_encoders.seq2vec_encoder import Seq2VecEncoder
+from models.utils import Hardsigmoid, BernoulliST, RoundST
 
 class MLP(Seq2VecEncoder):
 
@@ -15,7 +16,8 @@ class MLP(Seq2VecEncoder):
         self.hdim = hidden_dimension
         self.layers = num_layers
         self.linears = nn.modules.container.ModuleList()
-        self.activation = nn.ReLU()
+        self.activation =  Hardsigmoid()
+        self.binarizer = RoundST
         self.linears.append(nn.Linear(self.emb_dim, self.hdim))
         for i in range(self.layers-1):
             self.linears.append(nn.Linear(self.hdim, self.hdim))
@@ -35,5 +37,7 @@ class MLP(Seq2VecEncoder):
         for layer in self.linears:
             x = layer(x)
             x = self.activation(x)
+            binary = self.binarizer(x)
+            x = x*binary
         return x.mean(dim=1).squeeze(1)
 

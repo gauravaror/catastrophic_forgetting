@@ -53,9 +53,12 @@ class MainClassifier(Model):
     self.task_encoder = TaskEncoding(self.e_dim) if task_embed else None
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
+    self.use_task_memory  = False
     self.task_memory = TaskMemory(self.encoder.get_output_dim(), args.mem_size)
-    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.task_memory.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))])
-    self.use_task_memory  = True
+    self.classifier_dim = self.encoder.get_output_dim()
+    if self.use_task_memory:
+        self.classifier_dim = self.task_memory.get_output_dim()
+    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.classifier_dim, out_features=self.vocab.get_vocab_size('labels'))])
     self._len_dataset = None
     if self.args.ewc:
         self.ewc = EWC(self)
@@ -67,7 +70,7 @@ class MainClassifier(Model):
     self.num_task = self.num_task + 1
     self.task2id[task_tag] = self.num_task
     self.tasks_vocabulary[task_tag] = vocab
-    self.classification_layers.append(torch.nn.Linear(in_features=self.task_memory.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
+    self.classification_layers.append(torch.nn.Linear(in_features=self.classifier_dim, out_features=vocab.get_vocab_size('labels')))
     if self.use_task_memory:
         self.task_memory.add_task_memory(task_tag)
 
