@@ -50,10 +50,10 @@ class MainClassifier(Model):
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
     self.e_dim = e_dim
-    self.task_encoder = TaskEncoding(self.e_dim) if task_embed else None
+    self.task_encoder =  True if task_embed else None
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
-    self.use_task_memory  = False
+    self.use_task_memory  = args.use_task_memory
     self.task_memory = TaskMemory(self.encoder.get_output_dim(), args.mem_size)
     self.classifier_dim = self.encoder.get_output_dim()
     if self.use_task_memory:

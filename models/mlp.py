@@ -10,14 +10,16 @@ class MLP(Seq2VecEncoder):
     def __init__(self,
                embedding_dim: int,
                hidden_dimension: int,
-               num_layers: int) -> None:
+               num_layers: int,
+               use_binary: bool) -> None:
         super(MLP, self).__init__()
         self.emb_dim = embedding_dim
         self.hdim = hidden_dimension
         self.layers = num_layers
         self.linears = nn.modules.container.ModuleList()
         self.activation =  Hardsigmoid()
-        self.binarizer = RoundST
+        self.binarizer = BernoulliST
+        self.use_binary = use_binary
         self.linears.append(nn.Linear(self.emb_dim, self.hdim))
         for i in range(self.layers-1):
             self.linears.append(nn.Linear(self.hdim, self.hdim))
@@ -37,7 +39,10 @@ class MLP(Seq2VecEncoder):
         for layer in self.linears:
             x = layer(x)
             x = self.activation(x)
-            binary = self.binarizer(x)
-            x = x*binary
-        return x.mean(dim=1).squeeze(1)
+            if self.use_binary:
+                binary = self.binarizer(x)
+                x = x*binary
+                #print("Binary ", x)
+        output = x.mean(dim=1).squeeze(1)
+        return output
 
