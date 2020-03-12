@@ -7,113 +7,32 @@ import pandas as pd
 import random
 
 from models.utils import get_catastrophic_metric
-from allennlp.data.dataset_readers import DatasetReader
-from models.sst import StanfordSentimentTreeBankDatasetReader1
 from allennlp.data.vocabulary import Vocabulary
 from models.save_weights import SaveWeights
 
-from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
-from allennlp.modules.token_embedders import Embedding
-from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder, PytorchSeq2SeqWrapper
-from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrapper
-from allennlp.models import Model
-
-from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
-from models.cnn_encoder import CnnEncoder
-from models.encoder_IDA import EncoderRNN
-from models.hashedIDA import HashedMemoryRNN
-from models.transformer_encoder import TransformerRepresentation
-
-from models.deep_pyramid_cnn import DeepPyramidCNN
 from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
-from allennlp.modules.seq2seq_encoders.multi_head_self_attention import MultiHeadSelfAttention
 from allennlp.nn.util import get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.util import move_optimizer_to_cuda, evaluate
 from allennlp.common.params import Params
-from models.classifier import MainClassifier
-from models.other_classifier import Seq2SeqClassifier, MajorityClassifier
-from models.mean_classifier import MeanClassifier
-from models.trec import TrecDatasetReader
-from models.subjectivity import SubjectivityDatasetReader
-from models.CoLA import CoLADatasetReader
-from models.ag import AGNewsDatasetReader
+from allennlp.nn.util import move_to_device
+
+import models.net as net
+from models.args import get_args
 import models.utils as utils
-import argparse
+import models.evaluate as eva
 #from torch.utils.tensorboard import SummaryWriter
 
-majority = {'subjectivity': 0.5, 'sst': 0.2534059946, 'trec': 0.188, 'cola': 0, 'ag': 0.25, 'sst_2c': 0.51}
+from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
+from ignite.metrics import Accuracy, Loss
+from ignite.contrib.handlers.tqdm_logger import ProgressBar
+from ignite.handlers import EarlyStopping, Checkpoint, DiskSaver, global_step_from_engine
 
-sota = {'subjectivity': 0.955, 'sst': 0.547, 'trec': 0.9807, 'cola': 0.341, 'ag' : 0.955 , 'sst_2c': 0.968}
-
-
-parser = argparse.ArgumentParser(description='Argument for catastrophic training.')
-parser.add_argument('--task', action='append', help="Task to be added to model, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity. If train and evaluate options are not provide they default to tasks option.\n")
-parser.add_argument('--train', action='append', help="Task to train on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
-parser.add_argument('--evaluate', action='append', help="Task to evaluate on, put each task seperately, Allowed tasks currently are : \nsst \ncola \ntrec \nsubjectivity\n")
-parser.add_argument('--few_shot', action='store_true', help="Train task on few shot learning before evaluating.")
-parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
-parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
-parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
-
-# CNN Params
-parser.add_argument('--cnn', action='store_true', help="Use CNN")
-parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
-parser.add_argument('--ngram_filter', type=int, default=2, help="Ngram filter size to send in")
-parser.add_argument('--stride', type=int, default=1, help="Strides to use for CNN")
+from tensorboardX import SummaryWriter
 
 
-parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
-parser.add_argument('--layers', type=int, default=1, help="Number of layers")
-parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
-parser.add_argument('--bs', type=int, default=64, help="Batch size to use")
-parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
-parser.add_argument('--embeddings', help="Use which embedding ElMO embeddings or BERT",type=str, default='default')
-
-# Optimization Based Parameters
-parser.add_argument('--wdecay', type=float, help="L2 Norm to use")
-parser.add_argument('--lr', type=float, default=0.001, help="L2 Norm to use")
-parser.add_argument('--opt_alg', type=str, default="adam", help="Optimization algorithm to use")
-parser.add_argument('--patience', type=int, default=10, help="Number of layers")
-
-
-parser.add_argument('--e_dim', type=int, default=128, help="Embedding Dimension")
-parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
-parser.add_argument('--s_dir', help="Serialization directory")
-parser.add_argument('--seq2vec', help="Use Sequence to sequence",action='store_true')
-parser.add_argument('--gru', help="Use GRU unit",action='store_true')
-parser.add_argument('--transformer', help="Use transformer unit",action='store_true')
-parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
-parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
-parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')
-parser.add_argument('--ewc', help="Use Elastic Weight consolidation",action='store_true')
-parser.add_argument('--ewc_importance', type=int, default=1000, help="Use Elastic Weight consolidation importance to add weights")
-parser.add_argument('--ewc_normalise', type=str, help="Use Elastic Weight consolidation length, batches, none")
-parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
-parser.add_argument('--position_embed', action='store_true', help="Add the positional embeddings in the word embeddings.")
-
-## Memory related options
-parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
-parser.add_argument('--mem_context_size', help="Memory output size", type=int, default=512)
-parser.add_argument('--use_memory', action='store_true', help="Weather to use memory are not")
-parser.add_argument('--use_binary', action='store_true', help="Make the memory access binary")
-parser.add_argument('--pad_memory', action='store_true', help="Pad the Memory after training each task")
-
-
-parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
-parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
-parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
-parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
-parser.add_argument('--small', type=int, default=None, help="Use only these examples from each set")
-parser.add_argument('--run_name', type=str, default="Default", help="This is the run name being saved to tensorboard")
-parser.add_argument('--storage_prefix', type=str, default="./runs/", help="This is used to store the runs inside runs folder")
-
-parser.add_argument('--pooling', type=str, default="max", help="Selects the pooling operation for CNN, max pooling, min pooling, average pooling. max,min,avg")
-parser.add_argument('--no_save_weight', action='store_true', help="Disable saving of weights")
-
-args = parser.parse_args()
-
+args = get_args()
 
 #writer=SummaryWriter(run_name)
 #writer.add_text("args", str(args))
@@ -150,15 +69,14 @@ joint_dev = []
 task_code=""
 labels_mapping={}
 for i in tasks:
-  task_code+=str("_"+str(i))
-  joint_train += train_data[i]
-  joint_dev += dev_data[i]
-  if args.diff_class:
+    task_code+=str("_"+str(i))
+    joint_train += train_data[i]
+    joint_dev += dev_data[i]
     vocabulary[i] = Vocabulary.from_instances(train_data[i] + dev_data[i])
     label_size = vocabulary[i].get_vocab_size('labels')
     label_indexes = {}
     for si in range(label_size):
-      label_indexes[si] = vocabulary[i].get_token_from_index(si, 'labels')
+        label_indexes[si] = vocabulary[i].get_token_from_index(si, 'labels')
     labels_mapping[i] = label_indexes
 print("Labels mapping :  ", labels_mapping)
 
@@ -190,92 +108,10 @@ word_embedding_dim = word_embeddings.get_output_dim()
 if args.task_embed:
     word_embedding_dim += 1
 
-experiment="lstm"
-print("CNN",args.cnn)
-if args.cnn:
-  experiment="cnn_"
-  experiment += args.pooling
-  ngrams_f=(args.ngram_filter,)
-  strides=(args.stride,)
-  cnn = CnnEncoder(embedding_dim=word_embedding_dim,
-                   num_layers=args.layers,
-		   ngram_filter_sizes=ngrams_f,
-		   strides=strides,
-		   num_filters=args.h_dim,
-                   pooling=args.pooling)
-  if args.pyramid:
-      experiment="dpcnn"
-      cnn = DeepPyramidCNN(embedding_dim=word_embedding_dim,
-                       num_layers=args.layers,
-		       ngram_filter_sizes=ngrams_f,
-		       num_filters=args.h_dim)
-  model = MainClassifier(word_embeddings, cnn, vocab, task_embed=args.task_embed, args=args, e_dim=word_embedding_dim)
-  if args.mean_classifier:
-    print("We are on journey to use the mean classifier now.")
-    model = MeanClassifier(word_embeddings, cnn, vocab)
-elif args.seq2vec or args.majority:
-  experiment="lstm"
-  lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(word_embedding_dim, args.h_dim,
-					   num_layers=args.layers,
-					   dropout=args.dropout,
-					   bidirectional=args.bidirectional,
-					   batch_first=True))
-  if args.gru:
-    experiment="gru"
-    lstm = PytorchSeq2VecWrapper(torch.nn.GRU( word_embedding_dim, args.h_dim,
-					   num_layers=args.layers,
-					   dropout=args.dropout,
-					   bidirectional=args.bidirectional,
-					   batch_first=True))
-  if args.hashed:
-    experiment="embedding_access_memory"
-    memory_embeddings = utils.get_embedder("glove", vocab, word_embedding_dim, rq_grad=False)
-    lstm = HashedMemoryRNN(word_embedding_dim, args.h_dim,
-                      inv_temp=args.inv_temp,
-                      mem_size=args.mem_size,
-                      num_layers=args.layers,
-                      dropout=args.dropout,
-                      bidirectional=args.bidirectional,
-                      batch_first=True,
-		      memmory_embed=memory_embeddings)
-  if args.IDA:
-    experiment="IDA"
-    lstm = EncoderRNN(word_embedding_dim, args.h_dim,
-                      inv_temp=args.inv_temp,
-                      mem_size=args.mem_size,
-                      num_layers=args.layers,
-                      dropout=args.dropout,
-                      bidirectional=args.bidirectional,
-                      batch_first=True)
-  if args.transformer:
-    experiment="transformer"
-    lstm = TransformerRepresentation(word_embedding_dim, # Embedding Dimension
-                      8, # Number of heads to use in embeddings.
-                      args.h_dim, # Number of hidden units
-                      args.layers, # Number of Layers
-                      dropout=args.dropout,
-                      use_memory=args.use_memory,
-                      mem_size=args.mem_size,
-                      mem_context_size=args.mem_context_size,
-                      use_binary=args.use_binary)
-  model = MainClassifier(word_embeddings, lstm, vocab, inv_temp=args.inv_temp, temp_inc=args.temp_inc,
-                         task_embed=args.task_embed, args=args, e_dim=word_embedding_dim)
-  if args.majority:
-    model = MajorityClassifier(vocab)
-else:
-  experiment="selfattention"
-  attentionseq = StackedSelfAttentionEncoder(
-					   input_dim=word_embedding_dim,
-					   hidden_dim=args.h_dim,
-					   projection_dim=128,
-					   feedforward_hidden_dim=128,
-					   num_layers=args.layers,
-					   num_attention_heads=8,
-					   attention_dropout_prob=args.dropout)
-  model = Seq2SeqClassifier(word_embeddings, attentionseq, vocab, hidden_dimension=args.h_dim, bs=32)
-
+model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args)
 print("Running Experiment " , experiment)
 
+save_weight = None
 if not args.no_save_weight:
     save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier, tasks=train)
 
@@ -289,6 +125,9 @@ optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
 
+writer = SummaryWriter(logdir=run_name)
+writer.add_text("args", str(args))
+
 iterator.index_with(vocab)
 devicea = -1
 if torch.cuda.is_available():
@@ -296,207 +135,138 @@ if torch.cuda.is_available():
 
 overall_metrics = {}
 ostandard_metrics = {}
-if args.joint:
-  print("\nTraining task : Joint ", tasks)
-  trainer = Trainer(model=model,
-                  optimizer=optimizer,
-                  iterator=iterator,
-                  train_dataset=joint_train,
-                  validation_dataset=joint_dev,
-                  patience=args.patience,
-                  num_epochs=args.epochs,
-		  cuda_device=devicea)
-  trainer.train()
-  for i in evaluate_tasks:
-    print("\nEvaluating ", i)
-    sys.stdout.flush()
-    evaluate(model=model,
-	 instances=dev_data[i],
-	 data_iterator=iterator,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
-else:
-  trainer = Trainer(model=model,
-                  optimizer=optimizer,
-                  iterator=iterator,
-                  train_dataset=train_data[i],
-                  validation_dataset=dev_data[i],
-                  validation_metric="-loss",
-                  num_serialized_models_to_keep=1,
-                  model_save_interval=1,
-                  serialization_dir=run_name,
-                  histogram_interval=100,
-                  patience=args.patience,
-                  num_epochs=args.epochs,
-                  cuda_device=devicea)
-  old_task_data = None
-  for tid,i in enumerate(train,1):
+
+
+
+def update(engine, batch):
+    model.train()
+    optimizer.zero_grad()
+    batch  = move_to_device(batch, devicea)
+    output = model(batch['tokens'], batch['label'])
+    output["loss"].backward()
+    optimizer.step()
+    return output
+
+def validate(engine, batch):
+    model.eval()
+    batch = move_to_device(batch, devicea)
+    model.get_metrics()
+    output = model(batch['tokens'], batch['label'])
+    current_metric = model.get_metrics()
+    engine.state.metric = current_metric
+    engine.state.metric['loss'] = output['loss']
+
+
+
+itrainer = Engine(update)
+ievaluator = Engine(validate)
+
+
+@itrainer.on(Events.COMPLETED(every=2))
+def log_training(engine):
+    batch_loss = engine.state.output['loss']
+    metric = model.get_metrics()
+    lr = optimizer.param_groups[0]['lr']
+    e = engine.state.epoch
+    n = engine.state.max_epochs
+    i = engine.state.iteration
+    print("Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
+
+pbar = ProgressBar()
+pbar.attach(itrainer, ['loss'])
+current_task = None
+
+@itrainer.on(Events.EPOCH_COMPLETED)
+def run_validation(engine):
+    val_iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
+    val_iterator.index_with(vocabulary[current_task])
+    raw_val_generator = iterator(dev_data[current_task], num_epochs=1)
+    val_groups = list(raw_val_generator)
+    model.get_metrics(True)
+    ievaluator.run(val_groups)
+    batch_loss = ievaluator.state.metric['loss']
+    metric = ievaluator.state.metric
+    lr = optimizer.param_groups[0]['lr']
+    e = engine.state.epoch
+    n = engine.state.max_epochs
+    i = engine.state.iteration
+    print("Val Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
+
+
+def score_function(engine):
+    metric = engine.state.metric['accuracy']
+    if current_task == 'cola':
+        metric = engine.state.metric['average']
+    return metric
+
+early_stop_metric = EarlyStopping(patience=args.patience, score_function=score_function, trainer=itrainer)
+ievaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
+
+to_save = {'model': model}
+disk_saver = DiskSaver(run_name, create_dir=True, require_empty=args.require_empty)
+best_save = Checkpoint(to_save,
+                       disk_saver,
+                       n_saved=1,
+                       filename_prefix='best',
+                       score_function=score_function,
+                       score_name="val_best",
+                       global_step_transform=global_step_from_engine(itrainer))
+ievaluator.add_event_handler(Events.COMPLETED, best_save)
+
+def reset_state():
+    print("Best of last task", best_save.last_checkpoint)
+    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
+    best_save._saved = []
+    early_stop_metric.counter = 0
+    early_stop_metric.best_score = None
+    itrainer.state.epoch = 0
+
+for tid,i in enumerate(train,1):
+    current_task = i
     print("\nTraining task ", i)
     sys.stdout.flush()
-    if args.diff_class:
-      if args.pad_memory:
+    if args.pad_memory:
           model.encoder.add_target_pad()
-      training_ = True if i != 1 else False
-      normaliser = len(train_data[i])/args.bs
-      if args.ewc_normalise == 'length':
+    training_ = True if i != 1 else False
+    normaliser = len(train_data[i])/args.bs
+    if args.ewc_normalise == 'length':
           normaliser = len(train_data[i])
-      elif args.ewc_normalise == 'batches':
+    elif args.ewc_normalise == 'batches':
           normaliser = len(train_data[i])/args.bs
-      else:
+    else:
           normaliser  = 1
-      model.set_task(i, training=training_, normaliser=normaliser)
-      trainer._num_epochs = args.epochs
-      iterator.index_with(vocabulary[i])
-      trainer.train_data = train_data[i]
-      trainer._validation_data = dev_data[i]
-      trainer.model = model
-      trainer.iterator = iterator
-      trainer._validation_iterator = iterator
-      if i == 'cola':
-          trainer._validation_metric = 'average'
-          trainer._metric_tracker._should_decrease = False
-          trainer.validation_metric = '+average'
-      else:
-          trainer._validation_metric = 'loss'
-          trainer._metric_tracker._should_decrease = True
-          trainer.validation_metric = '-loss'
-      trainer._metric_tracker.clear()
-    if not args.majority:
-      metrics = trainer.train()
-      trainer._tensorboard.add_train_scalar("restore_checkpoint/"+str(i), metrics['training_epochs'], timestep=tid)
-    old_task_data = train_data[i]
-    for j in evaluate_tasks:
-      print("\nEvaluating ", j)
-      sys.stdout.flush()
-      if args.diff_class:
-        model.set_task(j)
-        # This batch size of 10000 is hack to get activation while doing evaluation.
-        iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
-        iterator1.index_with(vocabulary[j])
-        if args.few_shot:
-          met = evaluate(model=model,
-	                    instances=dev_data[j],
-	                    data_iterator=iterator1,
-	                    cuda_device=devicea,
-	                    batch_weight_key=None)
-          print("Now few_shot training ", j, "Metric before ", met," \n")
-          for name, param in model.named_parameters():
-            print("Named parameters for freezing ", name)
-            if name.startswith('encoder') or name.startswith('word_embeddings'):
-              print("Freezing param ", name)
-              param.requires_grad = False
-          trainer.model = model
-          trainer.train_data = few_data[j]
-          trainer._validation_data = few_data[j]
-          trainer.iterator = iterator1
-          trainer._metric_tracker.clear()
-          print("Doing few shot traing current things is ", trainer._metric_tracker._epochs_with_no_improvement, trainer._metric_tracker._epoch_number)
-          trainer._num_epochs = 10
-          trainer.train()
-          # Back to hack of 10000 to get all the activations together as
-          trainer._num_epochs = args.epochs
-      if args.mean_classifier:
-        model.adding_mean_representation = True
-        metric = evaluate(model=model,
-	                   instances=few_data[j],
-	                   data_iterator=iterator1,
-	                   cuda_device=devicea,
-	                   batch_weight_key=None)
-        model.adding_mean_representation = False
-        model.get_mean_prune_sampler()
-        model.evaluate_using_mean = True
-      print("Now evaluating ", j, len(dev_data[j]))
-      metric = evaluate(model=model,
-	 instances=dev_data[j],
-	 data_iterator=iterator1,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
+    model.set_task(i, training=training_, normaliser=normaliser)
+    iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
+    iterator.index_with(vocabulary[i])
+    raw_train_generator = iterator(train_data[i], num_epochs=1)
+    groups = list(raw_train_generator)
+    itrainer.run(groups, max_epochs=args.epochs)
+    reset_state()
+    ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
+                                                             model, args, save_weight)
+    overall_metrics[i] = ometric
+    ostandard_metrics[i] = smetric
+    for j in smetric.keys():
+        writer.add_scalar("evaluate/"+str(j),
+                                              float(ometric[j]['metric']),
+                                              tid)
+        writer.add_scalar("standard_evaluate/"+str(j),
+                                              smetric[j],
+                                              tid)
+# Calculate the catastrophic forgetting and add it into tensorboard before
+# closing the tensorboard
+c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
+print("Forgetting Results", c_standard_metric)
+for tid,task in enumerate(c_standard_metric, 1):
+  writer.add_scalar("forgetting_metric/standard_" + task,
+                                        c_standard_metric[task],
+                                        tid)
+if not args.no_save_weight:
+  #save_weight.write_activations(overall_metrics, writer, tasks)
+  save_weight.get_task_tsne(writer)
 
-      # Take first 500 instances for evaluating activations.
-      if not args.no_save_weight:
-         iterator1 = BucketIterator(batch_size=500, sorting_keys=[("tokens", "num_tokens")])
-         iterator1.index_with(vocabulary[j])
-         evaluate(model=model,
-	     instances=dev_data[j][:500],
-	     data_iterator=iterator1,
-	     cuda_device=devicea,
-	     batch_weight_key=None)
-         save_weight.add_activations(model,i,j)
-
-      if args.mean_classifier:
-        model.evaluate_using_mean = False
-
-      if j == 'cola':
-          metric['metric'] = metric['average']
-      else:
-          metric['metric'] = metric['accuracy']
-
-      standard_metric = (float(metric['metric']) - majority[j]) / (sota[j] - majority[j])
-      if j not in overall_metrics:
-        overall_metrics[j] = {}
-        overall_metrics[j][i] = metric
-        ostandard_metrics[j] = {}
-        ostandard_metrics[j][i] = standard_metric
-      else:
-        overall_metrics[j][i] = metric
-        ostandard_metrics[j][i] = standard_metric
-      print("Adding timestep to trainer",tid, tasks, j, float(metric['metric']))
-      trainer._tensorboard.add_train_scalar("evaluate/"+str(j), float(metric['metric']), timestep=tid)
-      trainer._tensorboard.add_train_scalar("standard_evaluate/"+str(j), standard_metric, timestep=tid)
-  # Calculate the catastrophic forgetting and add it into tensorboard before
-  # closing the tensorboard
-  c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
-  print("Forgetting Results", c_standard_metric)
-  for tid,task in enumerate(c_standard_metric, 1):
-      trainer._tensorboard.add_train_scalar("forgetting_metric/standard_" + task,
-					    c_standard_metric[task],
-					    timestep=tid)
-  if not args.no_save_weight:
-      #save_weight.write_activations(overall_metrics, trainer, tasks)
-      save_weight.get_task_tsne(trainer)
-
-  trainer._tensorboard._train_log.close()
-
-if not args.diff_class:
-  print("\n Joint Evaluating ")
-  sys.stdout.flush()
-  overall_metric = evaluate(model=model,
-	 instances=joint_dev,
-	 data_iterator=iterator,
-	 cuda_device=devicea,
-	 batch_weight_key=None)
+writer.close()
 
 print("Training Results are on these Arguments", args)
+eva.print_evaluate_stats(train, evaluate_tasks, args, overall_metrics, task_code, experiment)
 
-print("Accuracy and Loss")
-header="Accuracy"
-for i in evaluate_tasks:
-  header = header + "\t\t" + i
-insert_in_pandas_list=[]
-print(header)
-for d in train:
-  print_data=d
-  insert_pandas_dict={'code': task_code, 'layer': args.layers, 'h_dim': args.h_dim, 'task': d, 'try': args.tryno, 'experiment': experiment, 'metric': 'accuracy'}
-  i=0
-  for k in evaluate_tasks:
-    print_data = print_data + "\t\t" + str(overall_metrics[k][d]["metric"])
-    insert_pandas_dict[k] = overall_metrics[k][d]["metric"]
-  insert_in_pandas_list.append(insert_pandas_dict)
-  print(print_data)
-print("\n\n")
-initial_path="dfs/Results" + args.run_name
-if not args.seq2vec:
-  intial_path="dfs_att/Results_selfattention" + args.run_name
-if args.cnn:
-  initial_path="dfs/Results_CNN_" + args.run_name
-if args.gru:
-  initial_path="dfs/Results_GRU_" + args.run_name
-
-df=pd.DataFrame(insert_in_pandas_list)
-
-if args.few_shot:
-  initial_path += ('_train_' + train_code)
-  initial_path += ('_evaluate_' + evaluate_code)
-
-df.to_pickle(path=str(initial_path+task_code+"_"+str(args.layers)+"_"+str(args.h_dim)+"_"+str(args.tryno)+".df"))
-#print(joint_print_data)

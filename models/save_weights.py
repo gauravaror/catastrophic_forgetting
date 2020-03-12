@@ -67,7 +67,7 @@ class SaveWeights:
       #label_mapping = None
       plot = utils.run_tsne_embeddings(activations,labels, labels_map = labels_map, mlabels=marker_labels)
       label_figure  = "task_tsne_embeddings/" + str(last_task)
-      trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+      trainer.add_image(label_figure, plot, dataformats='NCHW')
 
   def get_zero_weights(self, activations):
 
@@ -91,9 +91,9 @@ class SaveWeights:
         puttask=''
         timeset = (tasks.index(task) + 1)
 
-    trainer._tensorboard.add_train_scalar("weight_stats/"+metric+"/"+str(puttask)+'/',
+    trainer.add_scalar("weight_stats/"+metric+"/"+str(puttask)+'/',
             metric_value,
-            timestep=timeset)
+            timeset)
     val[metric] = metric_value
     return val
 
@@ -117,6 +117,10 @@ class SaveWeights:
         return data
     elif self.encoder_type.startswith('transformer'):
         return data
+    elif self.encoder_type.startswith('mlp'):
+        return data
+    else:
+        raise "Weight type not added in get_arr_rep"
 #.reshape(test_instances[task], -1).numpy()
 
   def write_activations(self, overall_metrics, trainer, tasks):
@@ -158,7 +162,7 @@ class SaveWeights:
               else:
                       plot = utils.run_tsne_embeddings(this_encoder, this_label, self.labels_map[evalua], task=False)
               label_figure  = "TSNE_embeddings/" + str(task) + "/"+ evalua
-              trainer._tensorboard._train_log.add_image(label_figure, plot, dataformats='NCHW')
+              trainer.add_image(label_figure, plot, dataformats='NCHW')
 
               dead, average_z,tot = self.get_zero_weights(current_activation)
               val = self.set_stat(evalua, task, 'avg_zeros_per', average_z/tot, trainer, val, tasks)
