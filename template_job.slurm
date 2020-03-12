@@ -10,8 +10,10 @@
 
 first_task=(trec)
 others=(trec sst cola subjectivity)
-others=${others[@]/$first_task}
-run_name='s_8m_transformer_emb_temp_inc_exper_'
+newarr=()
+for i in "${others[@]}"; do if [ ! $i == "$first_task" ]; then echo $i; newarr+=("$i"); fi; done
+echo "${newarr[0]} ${newarr[1]} ${newarr[2]}"
+run_name='s_12m_mlp_emb_temp_inc_exper_'
 storage_prefix="./runs/${run_name}/${first_task}/"
 dropout=0.5
 patience=10
@@ -32,7 +34,7 @@ run_configuration() {
   hidden=$6
   try=$7
 
-  export CUDA_VISIBLE_DEVICES=0; /home/gaurava/miniconda3/envs/catastrophic/bin/python train.py   --task $first_task  --task  $second_task --task $third_task  --task  $fourth_task  --layers $layer --h_dim $hidden --dropout $dropout --run_name $run_name --tryno $try --epochs $epochs --patience $patience --storage_prefix $storage_prefix --bs $bs --transformer --inv_temp 5 --temp_inc 2 --no_save_weight >> ${run_name}_${first_task}.log;
+  export CUDA_VISIBLE_DEVICES=0; /home/gaurava/miniconda3/envs/catastrophic/bin/python train.py   --task $first_task  --task  $second_task --task $third_task  --task  $fourth_task  --layers $layer --h_dim $hidden --dropout $dropout --run_name $run_name --tryno $try --epochs $epochs --patience $patience --storage_prefix $storage_prefix --bs $bs --mlp --no_save_weight --inv_temp 5 --temp_inc 2 >> ${run_name}_${first_task}.log;
   find $storage_prefix -name '*.pth' | xargs rm
 
 }
@@ -42,12 +44,12 @@ for hidden in ${arr_hidden}; do
     for try in ${arr_try}; do
       # Launch multiple process python code
       echo "Running Layer $layer Hidden dimension $hidden" ;
-      run_configuration $first_task  ${others[3]} ${others[1]} ${others[2]} $layer $hidden $try
-      run_configuration $first_task  ${others[1]} ${others[3]} ${others[2]} $layer $hidden $try
-      run_configuration $first_task  ${others[2]} ${others[3]} ${others[1]} $layer $hidden $try
-      run_configuration $first_task  ${others[2]} ${others[1]} ${others[3]} $layer $hidden $try
-      run_configuration $first_task  ${others[3]} ${others[2]} ${others[1]} $layer $hidden $try
-      run_configuration $first_task  ${others[1]} ${others[2]} ${others[3]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[0]} ${newarr[1]} ${newarr[2]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[1]} ${newarr[0]} ${newarr[2]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[2]} ${newarr[0]} ${newarr[1]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[2]} ${newarr[1]} ${newarr[0]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[0]} ${newarr[2]} ${newarr[1]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[1]} ${newarr[2]} ${newarr[0]} $layer $hidden $try
 done
 done
 done

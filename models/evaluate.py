@@ -31,7 +31,6 @@ def evaluate_all_tasks(task, evaluate_tasks, dev_data, vocabulary, model, args, 
         model.set_task(j)
         print("\nEvaluating ", j)
         sys.stdout.flush()
-        print("Now evaluating ", j, len(dev_data[j]))
         iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
         iterator1.index_with(vocabulary[j])
         metric = evaluate(model=model,
