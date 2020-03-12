@@ -8,21 +8,23 @@
 #SBATCH -A punim0478 
 #SBATCH -q gpgpudeeplearn
 
-first_task='trec'
-others=('sst' 'cola' 'subjectivity')
-run_name='task_embedded_cnn_exper_'
+first_task=(trec)
+others=(trec sst cola subjectivity)
+newarr=()
+for i in "${others[@]}"; do if [ ! $i == "$first_task" ]; then echo $i; newarr+=("$i"); fi; done
+echo "${newarr[0]} ${newarr[1]} ${newarr[2]}"
+run_name='s_12m_mlp_emb_temp_inc_exper_'
 storage_prefix="./runs/${run_name}/${first_task}/"
 dropout=0.5
 patience=10
 epochs=100
 arr_hidden="100 400"
-arr_layer="1"
-arr_try="1 2 3 4 5 6 7 8 9 10"
+arr_layer="1 2"
+arr_try="1 2 3 4 5"
 bs=1024
 inv_temp=5
 temp_inc=2
 
-module load GLib/2.60.1-spartan_gcc-8.1.0
 run_configuration() {
   first_task=$1
   second_task=$2
@@ -32,9 +34,8 @@ run_configuration() {
   hidden=$6
   try=$7
 
-  export CUDA_VISIBLE_DEVICES=0; /home/gaurava/miniconda3/envs/catastrophic/bin/python train.py   --task $first_task  --task  $second_task --task $third_task  --task  $fourth_task  --layers $layer --h_dim $hidden --dropout $dropout  --diff_class --run_name $run_name --tryno $try --epochs $epochs --patience $patience --storage_prefix $storage_prefix --no_save_weight --bs $bs --cnn --task_embed >> ${run_name}_${first_task}.log;
-  find $storage_prefix -name '*.th' | xargs rm
-  find $storage_prefix -name '*.json' | xargs rm
+  export CUDA_VISIBLE_DEVICES=0; /home/gaurava/miniconda3/envs/catastrophic/bin/python train.py   --task $first_task  --task  $second_task --task $third_task  --task  $fourth_task  --layers $layer --h_dim $hidden --dropout $dropout --run_name $run_name --tryno $try --epochs $epochs --patience $patience --storage_prefix $storage_prefix --bs $bs --mlp --no_save_weight --inv_temp 5 --temp_inc 2 >> ${run_name}_${first_task}.log;
+  find $storage_prefix -name '*.pth' | xargs rm
 
 }
 
@@ -43,12 +44,12 @@ for hidden in ${arr_hidden}; do
     for try in ${arr_try}; do
       # Launch multiple process python code
       echo "Running Layer $layer Hidden dimension $hidden" ;
-      run_configuration $first_task  ${others[0]} ${others[1]} ${others[2]} $layer $hidden $try
-      run_configuration $first_task  ${others[1]} ${others[0]} ${others[2]} $layer $hidden $try
-      run_configuration $first_task  ${others[2]} ${others[0]} ${others[1]} $layer $hidden $try
-      run_configuration $first_task  ${others[2]} ${others[1]} ${others[0]} $layer $hidden $try
-      run_configuration $first_task  ${others[0]} ${others[2]} ${others[1]} $layer $hidden $try
-      run_configuration $first_task  ${others[1]} ${others[2]} ${others[0]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[0]} ${newarr[1]} ${newarr[2]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[1]} ${newarr[0]} ${newarr[2]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[2]} ${newarr[0]} ${newarr[1]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[2]} ${newarr[1]} ${newarr[0]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[0]} ${newarr[2]} ${newarr[1]} $layer $hidden $try
+      run_configuration $first_task  ${newarr[1]} ${newarr[2]} ${newarr[0]} $layer $hidden $try
 done
 done
 done
