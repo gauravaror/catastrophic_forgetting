@@ -51,6 +51,7 @@ def get_args():
     parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
     parser.add_argument('--mem_context_size', help="Memory output size", type=int, default=512)
     parser.add_argument('--use_memory', action='store_true', help="Weather to use memory are not")
+    parser.add_argument('--use_task_memory', action='store_true', help="Weather to use task memory before final classification layer")
     parser.add_argument('--use_binary', action='store_true', help="Make the memory access binary")
     parser.add_argument('--pad_memory', action='store_true', help="Pad the Memory after training each task")
 
