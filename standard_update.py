@@ -163,7 +163,13 @@ def update_graph(code, exper, hdim, layer, tasks):
         for i in range(len(my_df)):
             current_row = my_df.iloc[i]
             accuracy = [current_row['step_1_mean'], current_row['step_2_mean'], current_row['step_3_mean'], current_row['step_4_mean']]
-            rr = {'exper': current_row['exper'], 'type': 'line', 'x': splitcode, 'y': accuracy, 'name': get_name(current_row, task) }
+            variance = [current_row['step_1_var'], current_row['step_2_var'], current_row['step_3_var'], current_row['step_4_var']]
+            rr = {'exper': current_row['exper'],
+                  'type': 'line', 'x': splitcode, 
+                  'y': accuracy,
+                  'error_y': dict(type='data', array=variance),
+                  'name': get_name(current_row, task) }
+            print(rr)
             data.append(rr)
     layout = {
                 'plot_bgcolor': colors['background'],
@@ -179,7 +185,7 @@ def update_graph(code, exper, hdim, layer, tasks):
     for i in range(len(tot_df)):
         current_row = tot_df.iloc[i]
         name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        rr = {'type': 'bar', 'x': [current_row['exper']], 'y': [current_row['step_2_mean']], 'name': name}
+        rr = {'type': 'bar', 'x': [current_row['exper']], 'y': [current_row['step_2_mean']], 'error_y': dict(type='data', array=[current_row['step_2_var']]),'name': name}
         total_data.append(rr)
     print(total_data)
     fp = {'data':  total_data, 'layout': layout}
