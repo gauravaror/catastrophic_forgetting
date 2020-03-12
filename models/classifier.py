@@ -19,6 +19,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
+from models.mlp import MLP
 from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
 from models.transformer_encoder import PositionalEncoding
@@ -145,6 +146,9 @@ class MainClassifier(Model):
           output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
           output["loss"].backward(retain_graph=True)
           self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
+    if self.args.use_binary and type(self.encoder) == MLP:
+        binlos = self.encoder.get_binary_loss()
+        output["loss"] += binlos
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
