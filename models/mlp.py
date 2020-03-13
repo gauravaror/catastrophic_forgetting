@@ -11,7 +11,8 @@ class MLP(Seq2VecEncoder):
                embedding_dim: int,
                hidden_dimension: int,
                num_layers: int,
-               use_binary: bool) -> None:
+               use_binary: bool,
+               args) -> None:
         super(MLP, self).__init__()
         self.emb_dim = embedding_dim
         self.hdim = hidden_dimension
@@ -22,6 +23,8 @@ class MLP(Seq2VecEncoder):
         self.bottle_neck_dim = 40
         self.activation = nn.Sigmoid()
         self.binarizer = BernoulliST
+        self.args = args
+        self.alpha = args.alpha
         self.use_binary = use_binary
         self.linears.append(nn.Linear(self.emb_dim, self.hdim))
         for i in range(self.layers-1):
@@ -57,7 +60,7 @@ class MLP(Seq2VecEncoder):
                 bot = self.bottle2layer[idx](bot)
                 bot = self.activation(bot)
                 loss_binary = torch.sum(0.1*torch.log(bot) + (1-0.1)*torch.log(1-bot))
-                self.binary_loss += (-0.001*loss_binary)
+                self.binary_loss += (-self.alpha*loss_binary)
                 #print("Loss Binary ", -0.001*loss_binary, bot.shape, torch.log(bot))
                 binary = self.binarizer(bot)
                 binary = binary.unsqueeze(2)

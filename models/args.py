@@ -58,6 +58,7 @@ def get_args():
 
     parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
     parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
+    parser.add_argument('--alpha', help="Hyper parameter used in use binary sparsity",type=float, default=0.001)
     parser.add_argument('--softmax_temp', help="Increment in temperature after the softmax activation", action='store_true')
 
     parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
