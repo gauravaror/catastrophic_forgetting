@@ -190,7 +190,7 @@ def run_validation(engine):
     e = engine.state.epoch
     n = engine.state.max_epochs
     i = engine.state.iteration
-    print("Val Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
+    print("Val Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, early_stop_metric.counter, batch_loss, lr, metric['accuracy'], metric['average']))
 
 
 def score_function(engine):
