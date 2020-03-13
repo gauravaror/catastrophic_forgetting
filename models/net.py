@@ -69,7 +69,8 @@ def get_model(vocab, word_embeddings, word_embedding_dim, args):
         encoder = MLP(word_embedding_dim,
                       args.h_dim,
                       args.layers,
-                      args.alpha)
+                      args.alpha,
+                      use_binary=args.use_binary)
     else:
         raise "Unknown model"
 

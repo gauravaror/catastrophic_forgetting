@@ -111,6 +111,7 @@ if args.task_embed:
 model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args)
 print("Running Experiment " , experiment)
 
+save_weight = None
 if not args.no_save_weight:
     save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier, tasks=train)
 
@@ -227,7 +228,7 @@ early_stop_metric = EarlyStopping(patience=args.patience, score_function=score_f
 ievaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
 
 to_save = {'model': model}
-disk_saver = DiskSaver(run_name, create_dir=True,require_empty=args.require_empty)
+disk_saver = DiskSaver(run_name, create_dir=True, require_empty=args.require_empty)
 best_save = Checkpoint(to_save,
                        disk_saver,
                        n_saved=1,
