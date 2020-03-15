@@ -108,6 +108,8 @@ word_embeddings = utils.get_embedder(args.embeddings, vocab, args.e_dim, rq_grad
 word_embedding_dim = word_embeddings.get_output_dim()
 if args.task_embed:
     word_embedding_dim += 1
+    if args.transformer and word_embedding_dim % 2 != 0:
+        raise Exception("Transformer and task embedded should have even dimension for PositionalEmbeddings")
 
 model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args)
 print("Running Experiment " , experiment)
