@@ -54,7 +54,7 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
                      batch_weight_key=None)
             test_act, _ = model.get_activations()
             test_lab = torch.LongTensor(test_act.size(0)).fill_(tid)
-            if train_activations == None or test_activations == None:
+            if train_activations is None or test_activations is None:
                 train_activations = train_act
                 test_activations = test_act
                 train_labels = train_lab
@@ -72,9 +72,9 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     test_labels = move_to_device(test_labels, devicea)
 
     diag_model = DiagnositicClassifier(train_activations.size(1), 128, len(tasks))
+    diag_model = diag_model.cuda(devicea)
     optimizer = utils.get_optimizer(args.opt_alg, diag_model.parameters(), args.lr, args.wdecay)
     for epoch in range(100):
-        print("Running diagnostic epoch", epoch)
         diag_model.train()
         optimizer.zero_grad()
         loss, _ = diag_model(train_activations, train_labels)
@@ -82,10 +82,10 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
         optimizer.step()
 
     vloss , logits = diag_model(test_activations, test_labels)
-    print("Logits ", logits.shape)
     _, predicted = torch.max(logits, 1)
     correct_ones = (predicted == test_labels).sum()
-    print("Validation Loss", correct_ones.data, len(logits),"vloss", vloss, predicted, test_labels)
+    print("Validation Loss", "%s/%s"%(correct_ones.item(), len(logits)),"vloss", vloss, predicted, test_labels)
+    return correct_ones.item(), len(logits)
 
 
 
