@@ -9,6 +9,7 @@ def get_args():
     parser.add_argument('--mean_classifier', action='store_true', help="Start using mean classifier instead of normal evaluation.")
     parser.add_argument('--joint', action='store_true', help="Do the joint training or by the task sequentially")
     parser.add_argument('--diff_class', action='store_true', help="Do training with Different classifier for each task")
+    parser.add_argument('--task_diagnostics', action='store_true', help="Enable task diagnostics")
 
     # CNN Params
     parser.add_argument('--cnn', action='store_true', help="Use CNN")

@@ -22,6 +22,7 @@ import models.net as net
 from models.args import get_args
 import models.utils as utils
 import models.evaluate as eva
+import models.task_diagnostics as diag
 #from torch.utils.tensorboard import SummaryWriter
 
 from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
@@ -253,6 +254,10 @@ for tid,i in enumerate(train,1):
         writer.add_scalar("standard_evaluate/"+str(j),
                                               smetric[j],
                                               tid)
+
+if args.task_diagnostics:
+    diag.task_diagnostics(tasks, train_data, dev_data, vocabulary, model, args)
+
 # Calculate the catastrophic forgetting and add it into tensorboard before
 # closing the tensorboard
 c_standard_metric = get_catastrophic_metric(train, ostandard_metrics)
