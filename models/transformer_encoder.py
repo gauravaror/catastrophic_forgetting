@@ -10,14 +10,15 @@ from models.kv_memory import KeyValueMemory
 
 class TransformerRepresentation(nn.Module):
 
-    def __init__(self, emb_dim, nhead, nhid, nlayers, dropout=0.5,
+    def __init__(self, emb_dim, nhead, nhid, nlayers, args, dropout=0.5,
                  use_memory=False, mem_size=None, mem_context_size=None,
-                 inv_temp=None, use_binary=False, no_positional=False):
+                 inv_temp=None, use_binary=False):
         super(TransformerRepresentation, self).__init__()
         self.model_type = 'Transformer'
         self.emb_dim = emb_dim
         self.inv_temp = inv_temp
-        self.no_positional = no_positional
+        self.args = args
+        self.no_positional = self.args.no_positional
         self.memory = KeyValueMemory(use_memory=use_memory,
                                      emb_dim=self.emb_dim,
                                      mem_size=mem_size,
@@ -25,6 +26,7 @@ class TransformerRepresentation(nn.Module):
                                      inv_temp=self.inv_temp,
                                      use_binary=use_binary)
         self.src_mask = None
+        self.transposed = self.args.transposed
         self.pos_encoder = PositionalEncoding(emb_dim, dropout)
         encoder_layers = TransformerEncoderLayer(self.memory.get_input_size(),
                                                  nhead, nhid, dropout)
@@ -44,6 +46,7 @@ class TransformerRepresentation(nn.Module):
         return self.memory.get_input_size()
 
     def forward(self, src, mask):
+        src = src.transpose(0,1) if self.transposed else src
         if self.src_mask is None or self.src_mask.size(0) != len(src):
             device = src.device
             mask = self._generate_square_subsequent_mask(len(src)).to(device)
@@ -53,6 +56,7 @@ class TransformerRepresentation(nn.Module):
         src = self.pos_encoder(src) if not self.no_positional else src
         src_input = self.memory(src)
         output = self.transformer_encoder(src_input, self.src_mask)
+        output = output.transpose(0,1) if self.transposed else output
         return torch.mean(output, dim=1)
 
 class PositionalEncoding(nn.Module):
@@ -70,5 +74,6 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[: ,:x.size(1), :]
+        added_pe = self.pe[:x.size(0), :] if self.transposed else self.pe[:, x.size(1), :]
+        x = x + added_pe
         return self.dropout(x)
