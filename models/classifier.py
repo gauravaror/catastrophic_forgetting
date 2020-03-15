@@ -19,6 +19,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
+from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
 from models.transformer_encoder import PositionalEncoding
 from models.ewc import EWC
@@ -40,7 +41,6 @@ class MainClassifier(Model):
     self.tasks_vocabulary = {"default": vocab}
     self.current_task = "default"
     self.num_task = 0
-    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=self.vocab.get_vocab_size('labels'))])
     self.task2id = { "default": 0 }
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
@@ -50,9 +50,15 @@ class MainClassifier(Model):
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
     self.e_dim = e_dim
-    self.task_encoder = TaskEncoding(self.e_dim) if task_embed else None
+    self.task_encoder =  True if task_embed else None
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
+    self.use_task_memory  = args.use_task_memory
+    self.task_memory = TaskMemory(self.encoder.get_output_dim(), args.mem_size)
+    self.classifier_dim = self.encoder.get_output_dim()
+    if self.use_task_memory:
+        self.classifier_dim = self.task_memory.get_output_dim()
+    self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.classifier_dim, out_features=self.vocab.get_vocab_size('labels'))])
     self._len_dataset = None
     if self.args.ewc:
         self.ewc = EWC(self)
@@ -61,10 +67,12 @@ class MainClassifier(Model):
      self.encoder.add_target_padding()
 
   def add_task(self, task_tag: str, vocab: Vocabulary):
-    self.classification_layers.append(torch.nn.Linear(in_features=self.encoder.get_output_dim(), out_features=vocab.get_vocab_size('labels')))
     self.num_task = self.num_task + 1
     self.task2id[task_tag] = self.num_task
     self.tasks_vocabulary[task_tag] = vocab
+    self.classification_layers.append(torch.nn.Linear(in_features=self.classifier_dim, out_features=vocab.get_vocab_size('labels')))
+    if self.use_task_memory:
+        self.task_memory.add_task_memory(task_tag)
 
   def set_ewc(self, mode=True):
       if mode:
@@ -104,7 +112,7 @@ class MainClassifier(Model):
         embeddings = torch.cat([embeddings, task_em], dim=-1)
         #embeddings = self.task_encoder(embeddings, self.get_current_taskid())
 
-    if self.inv_temp:
+    if (not self.args.softmax_temp) and self.inv_temp:
         embeddings = self.inv_temp*embeddings
     if type(self.encoder) == HashedMemoryRNN:
         output = self.encoder(embeddings, mask, mem_tokens=tokens)
@@ -117,21 +125,24 @@ class MainClassifier(Model):
         activations = output
     self.activations = activations
     self.labels = label
+    if self.args.softmax_temp and self.inv_temp:
+        encoder_out = self.inv_temp*encoder_out
+
+    if self.use_task_memory:
+        encoder_out = self.task_memory(encoder_out, self.current_task)
     tag_logits = hidden2tag(encoder_out)
     output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
       _, preds = tag_logits.max(dim=1)
       self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
       self.accuracy(tag_logits, label)
+      output["loss"] = self.loss_function(tag_logits, label)
+      if self.use_task_memory:
+          output["loss"] += self.task_memory.get_memory_loss(self.current_task)
       if self.args.ewc and self.training:
-          output["loss"] = self.loss_function(tag_logits, label)
           output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
-          #self.ewc.loss_function(self.get_current_taskid(), tag_logits, label)
-      else:
-          output["loss"] = self.loss_function(tag_logits, label)
-    if self.args.ewc and self.training:
-        output["loss"].backward(retain_graph=True)
-        self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
+          output["loss"].backward(retain_graph=True)
+          self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:

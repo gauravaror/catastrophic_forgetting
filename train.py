@@ -111,6 +111,7 @@ if args.task_embed:
 model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args)
 print("Running Experiment " , experiment)
 
+save_weight = None
 if not args.no_save_weight:
     save_weight = SaveWeights(experiment, args.layers, args.h_dim, task_code, labels_mapping, args.mean_classifier, tasks=train)
 

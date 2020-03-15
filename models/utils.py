@@ -79,7 +79,8 @@ class BernoulliFunctionST(Function):
 
     @staticmethod
     def forward(ctx, input):
-
+        ctx.inp = input
+        ctx.bern = torch.bernoulli(input)
         return torch.bernoulli(input)
 
     @staticmethod

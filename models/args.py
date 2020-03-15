@@ -51,12 +51,15 @@ def get_args():
     parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
     parser.add_argument('--mem_context_size', help="Memory output size", type=int, default=512)
     parser.add_argument('--use_memory', action='store_true', help="Weather to use memory are not")
+    parser.add_argument('--use_task_memory', action='store_true', help="Weather to use task memory before final classification layer")
     parser.add_argument('--use_binary', action='store_true', help="Make the memory access binary")
     parser.add_argument('--pad_memory', action='store_true', help="Pad the Memory after training each task")
 
 
     parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
     parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
+    parser.add_argument('--softmax_temp', help="Increment in temperature after the softmax activation", action='store_true')
+
     parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
     parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
     parser.add_argument('--small', type=int, default=None, help="Use only these examples from each set")
