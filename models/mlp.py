@@ -52,7 +52,7 @@ class MLP(Seq2VecEncoder):
         sharp_elem = sharp_elem + self.alpha*(1-sharp_elem)
         unsharp_elem = unsharp_elem - self.alpha*unsharp_elem
         sharpened = sharp_elem + unsharp_elem
-        return self.loss_sharpening(sharp_layer, sharpened)
+        return -1*self.loss_sharpening(sharpened, sharp_layer)
 
     def get_sharpened_loss(self, num_sharp: int):
         total_loss = 0
@@ -69,6 +69,7 @@ class MLP(Seq2VecEncoder):
             x = layer(x)
             x = self.activation(x)
             self.layers_output.append(x)
+            #print(x)
             if self.use_binary:
                 binary = self.binarizer(x)
                 x = x*binary

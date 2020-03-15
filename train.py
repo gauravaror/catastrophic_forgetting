@@ -121,7 +121,7 @@ if torch.cuda.is_available():
   model.cuda(0)
 
 optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.wdecay)
-sharp_optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), 0.1, args.wdecay)
+sharp_optimizer = utils.get_optimizer(args.opt_alg, model.parameters(), args.lr, args.wdecay)
 
 torch.set_num_threads(4)
 iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
@@ -154,7 +154,7 @@ def update(engine, batch):
         sharp_optimizer.zero_grad()
         output = model(batch['tokens'], batch['label'])
     else:
-        loss = model.encoder.get_sharpened_loss(20)
+        loss = model.encoder.get_sharpened_loss(100)
         #print("Loss of this batch mlp sharp ", loss)
         engine.state.shape_loss = loss
         output = model(batch['tokens'], batch['label'])
