@@ -38,6 +38,7 @@ def get_args():
     parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
     parser.add_argument('--s_dir', help="Serialization directory")
     parser.add_argument('--transformer', help="Use transformer unit",action='store_true')
+    parser.add_argument('--no_positional', help="Disable positional embeddings in transformer",action='store_true')
     parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
     parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
     parser.add_argument('--hashed', help="Use Hashed Memory Networks",action='store_true')

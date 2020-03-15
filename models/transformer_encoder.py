@@ -12,11 +12,12 @@ class TransformerRepresentation(nn.Module):
 
     def __init__(self, emb_dim, nhead, nhid, nlayers, dropout=0.5,
                  use_memory=False, mem_size=None, mem_context_size=None,
-                 inv_temp=None, use_binary=False):
+                 inv_temp=None, use_binary=False, no_positional=False):
         super(TransformerRepresentation, self).__init__()
         self.model_type = 'Transformer'
         self.emb_dim = emb_dim
         self.inv_temp = inv_temp
+        self.no_positional = no_positional
         self.memory = KeyValueMemory(use_memory=use_memory,
                                      emb_dim=self.emb_dim,
                                      mem_size=mem_size,
@@ -49,7 +50,7 @@ class TransformerRepresentation(nn.Module):
             self.src_mask = mask
 
         src = src * math.sqrt(self.emb_dim)
-        src = self.pos_encoder(src)
+        src = self.pos_encoder(src) if not self.no_positional else src
         src_input = self.memory(src)
         output = self.transformer_encoder(src_input, self.src_mask)
         return torch.mean(output, dim=1)

@@ -43,7 +43,8 @@ def get_model(vocab, word_embeddings, word_embedding_dim, args):
                       use_memory=args.use_memory,
                       mem_size=args.mem_size,
                       mem_context_size=args.mem_context_size,
-                      use_binary=args.use_binary)
+                      use_binary=args.use_binary,
+                      no_positional=args.no_positional)
     elif args.IDA:
         experiment = "ida"
         encoder = EncoderRNN(word_embedding_dim, args.h_dim,
