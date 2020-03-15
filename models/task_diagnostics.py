@@ -32,10 +32,10 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     devicea = -1
     if torch.cuda.is_available():
         devicea = 0
-    train_activations = None
-    test_activations = None
-    train_labels = None
-    test_labels = None
+    train_activations = []
+    test_activations = []
+    train_labels = []
+    test_labels = []
     for tid,task in enumerate(tasks):
             model.set_task(task)
             iterator1 = BucketIterator(batch_size=500, sorting_keys=[("tokens", "num_tokens")])
@@ -46,6 +46,12 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
                      cuda_device=devicea,
                      batch_weight_key=None)
             train_act, _ = model.get_activations()
+            if type(train_act) == list:
+                # Hack for CNN need to do better
+                train_act = train_act[-1]
+                train_act = train_act.reshape(train_act.size(0), -1)
+                train_act = train_act[:,:128]
+                print("List", train_act.shape)
             train_lab = torch.LongTensor(train_act.size(0)).fill_(tid)
             evaluate(model=model,
                      instances=val_data[task][:500],
@@ -53,18 +59,23 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
                      cuda_device=devicea,
                      batch_weight_key=None)
             test_act, _ = model.get_activations()
+            if type(test_act) == list:
+                # Hack for CNN need to do better
+                test_act = test_act[-1]
+                test_act = test_act.reshape(test_act.size(0), -1)
+                test_act = test_act[:, :128]
             test_lab = torch.LongTensor(test_act.size(0)).fill_(tid)
-            if train_activations is None or test_activations is None:
-                train_activations = train_act
-                test_activations = test_act
-                train_labels = train_lab
-                test_labels = test_lab
-            else:
-                train_activations = torch.cat([train_activations, train_act], dim=0)
-                test_activations = torch.cat([test_activations, test_act], dim=0)
-                train_labels = torch.cat([train_labels, train_lab], dim=0)
-                test_labels = torch.cat([test_labels, test_lab], dim=0)
-            print("Activations ", train_activations.shape, test_activations.shape, train_labels.shape, test_labels.shape)
+            train_activations.append(train_act)
+            test_activations.append(test_act)
+            train_labels.append(train_lab)
+            test_labels.append(test_lab)
+
+    
+    train_activations = torch.cat(train_activations, dim=0)
+    test_activations = torch.cat(test_activations, dim=0)
+    train_labels = torch.cat(train_labels, dim=0)
+    test_labels = torch.cat(test_labels, dim=0)
+    print("Activations ", train_activations.shape, test_activations.shape, train_labels.shape, test_labels.shape)
 
     train_activations = move_to_device(train_activations, devicea)
     test_activations = move_to_device(test_activations, devicea)
