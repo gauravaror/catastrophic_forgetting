@@ -258,8 +258,10 @@ for tid,i in enumerate(train,1):
                                               tid)
 
 if args.task_diagnostics:
-    accuracy = diag.task_diagnostics(tasks, train_data, dev_data, vocabulary, model, args)
-    writer.add_scalar("task_diagnostics/accuracy", accuracy)
+    diag_metrics = diag.task_diagnostics(tasks, train_data, dev_data, vocabulary, model, args)
+    for task,dacc in diag_metrics.items():
+        print("Diag accur tensorboard ", task, dacc)
+        writer.add_scalar('task_diagnostics/{}'.format(task), dacc)
 
 
 

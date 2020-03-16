@@ -120,6 +120,7 @@ class MainClassifier(Model):
         output = self.encoder(embeddings, mask)
     if type(output) == tuple:
         encoder_out, activations = output
+        activations = encoder_out
     else:
         encoder_out = output
         activations = output

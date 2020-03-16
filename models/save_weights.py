@@ -100,14 +100,14 @@ class SaveWeights:
   def get_arr_rep(self, data, task):
     # This is used to find the test instances currently being processed.
     test_instances = {'trec': 500, 'sst': 1101, 'subjectivity': 1000, 'cola': 527, 'ag': 1500, 'sst_2c': 872}
-    if self.encoder_type.startswith('cnn'):
+    if self.encoder_type.startswith('cnna'):
       new_representation = torch.cat(data, dim=2)
       new_representation = new_representation.mean(dim=2)
       #samples, filters, gram = new_representation.shape
       #new_representation =  new_representation.reshape(samples, filters*gram)
       new_representation = utils.torch_remove_neg(new_representation)
       return new_representation
-    elif self.encoder_type.startswith('lstm'):
+    elif self.encoder_type.startswith('lstma'):
       data = data.to('cpu').detach()
       if data.shape[1] < data.shape[0]:
           data = data.reshape(data.shape[1], data.shape[0])
@@ -118,6 +118,10 @@ class SaveWeights:
     elif self.encoder_type.startswith('transformer'):
         return data
     elif self.encoder_type.startswith('mlp'):
+        return data
+    elif self.encoder_type.startswith('cnn'):
+        return data
+    elif self.encoder_type.startswith('lstm'):
         return data
     else:
         raise "Weight type not added in get_arr_rep"

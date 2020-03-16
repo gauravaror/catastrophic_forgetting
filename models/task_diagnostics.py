@@ -54,10 +54,12 @@ def evaluate_get_dataset(model, task, vocab, dataset, num_samples, task_id):
     if type(train_act) == list:
         # Hack for CNN need to do better
         train_act = train_act[-1]
+        print("tran ", train_act.shape)
         train_act = train_act.reshape(train_act.size(0), -1)
         train_act = train_act[:, :128]
     train_lab = torch.LongTensor(train_act.size(0)).fill_(task_id)
-    return train_act, train_lab
+
+    return move_to_device(train_act, devicea) , move_to_device(train_lab, devicea)
 
 def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     devicea = -1
@@ -87,10 +89,12 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     train_ds = torch.utils.data.TensorDataset(train_activations, train_labels)
     test_ds = torch.utils.data.TensorDataset(test_activations, test_labels)
     train_dl = torch.utils.data.DataLoader(train_ds, batch_size=32)
-    test_dl = torch.utils.data.DataLoader(test_ds, batch_size=32)
+    test_dl = torch.utils.data.DataLoader(test_ds, batch_size=2100)
 
     # Models and Optimizer
     diag_model = DiagnositicClassifier(train_activations.size(1), 128, len(tasks))
+    if devicea != -1:
+        diag_model.cuda(devicea)
     optimizer = utils.get_optimizer(args.opt_alg, diag_model.parameters(), args.lr, args.wdecay)
     criterion = nn.CrossEntropyLoss()
 
@@ -108,7 +112,7 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
         evaluator.run(train_dl)
         print("Epoch", engine.state.epoch, "Training Accuracy", evaluator.state.metrics["accuracy"])
         val_evaluator.run(test_dl)
-        print("Validation Accuracy", val_evaluator.state.metrics["accuracy"], val_evaluator.state.metrics['loss'])
+        print("Validation Accuracy", val_evaluator.state.metrics["accuracy"])
 
     def score_function(engine):
         return engine.state.metrics['accuracy']
@@ -116,4 +120,18 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     early_stop_metric = EarlyStopping(patience=20, score_function=score_function, trainer=trainer)
     val_evaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
     trainer.run(train_dl, max_epochs=1000)
-    return val_evaluator.state.metrics["accuracy"]
+    logits, test_labels = val_evaluator.state.output
+
+    _, predicted = torch.max(logits, 1)
+    correct_ones = (predicted == test_labels).sum()
+    metrics = {}
+    for i,task in enumerate(tasks):
+        start = i*500
+        end = (i+1)*500
+        correct_this = (predicted[start:end] == test_labels[start:end]).sum()
+        metrics[task] = correct_this.item()/500
+        #print("Task based accuracy", start, end , task, correct_this)
+
+    metrics["overall"] = val_evaluator.state.metrics["accuracy"]
+    print(metrics)
+    return metrics

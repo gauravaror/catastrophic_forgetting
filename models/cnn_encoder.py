@@ -153,5 +153,5 @@ class CnnEncoder(Seq2VecEncoder):
                 result = maxpool_output.min(dim=2)[0]
             elif self._pooling == 'avg':
                 result = maxpool_output.mean(dim=2)
-        return result, activations
+        return result, result
 
