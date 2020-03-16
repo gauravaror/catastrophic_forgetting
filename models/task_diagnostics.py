@@ -51,6 +51,11 @@ def evaluate_get_dataset(model, task, vocab, dataset, num_samples, task_id):
              cuda_device=devicea,
              batch_weight_key=None)
     train_act, _ = model.get_activations()
+    if type(train_act) == list:
+        # Hack for CNN need to do better
+        train_act = train_act[-1]
+        train_act = train_act.reshape(train_act.size(0), -1)
+        train_act = train_act[:, :128]
     train_lab = torch.LongTensor(train_act.size(0)).fill_(task_id)
     return train_act, train_lab
 
@@ -111,3 +116,4 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     early_stop_metric = EarlyStopping(patience=20, score_function=score_function, trainer=trainer)
     val_evaluator.add_event_handler(Events.COMPLETED, early_stop_metric)
     trainer.run(train_dl, max_epochs=1000)
+    return val_evaluator.state.metrics["accuracy"]

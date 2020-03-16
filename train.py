@@ -256,7 +256,10 @@ for tid,i in enumerate(train,1):
                                               tid)
 
 if args.task_diagnostics:
-    diag.task_diagnostics(tasks, train_data, dev_data, vocabulary, model, args)
+    accuracy = diag.task_diagnostics(tasks, train_data, dev_data, vocabulary, model, args)
+    writer.add_scalar("task_diagnostics/accuracy", accuracy)
+
+
 
 # Calculate the catastrophic forgetting and add it into tensorboard before
 # closing the tensorboard
