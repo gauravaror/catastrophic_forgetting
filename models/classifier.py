@@ -112,8 +112,10 @@ class MainClassifier(Model):
         embeddings = torch.cat([embeddings, task_em], dim=-1)
         #embeddings = self.task_encoder(embeddings, self.get_current_taskid())
 
-    if (not self.args.softmax_temp) and self.inv_temp:
+    # Increase temperature at embedding layer
+    if (self.args.all_temp or self.args.emb_temp) and self.inv_temp:
         embeddings = self.inv_temp*embeddings
+
     if type(self.encoder) == HashedMemoryRNN:
         output = self.encoder(embeddings, mask, mem_tokens=tokens)
     else:
@@ -126,14 +128,19 @@ class MainClassifier(Model):
         activations = output
     self.activations = activations
     self.labels = label
-    if self.args.softmax_temp and self.inv_temp:
+
+    # Increase temperature at encoder layer
+    if (self.args.all_temp or self.args.enc_temp) and self.inv_temp:
         encoder_out = self.inv_temp*encoder_out
 
     if self.use_task_memory:
         encoder_out = self.task_memory(encoder_out, self.current_task)
     tag_logits = hidden2tag(encoder_out)
-    if self.inv_temp:
+
+    # Increase temperature softmax layer
+    if (self.args.all_temp or self.args.softmax_temp) and self.inv_temp:
         tag_logits = self.inv_temp*tag_logits
+
     output = {'logits': tag_logits, 'encoder_output': encoder_out }
     if label is not None:
       _, preds = tag_logits.max(dim=1)

@@ -62,6 +62,10 @@ def get_args():
     parser.add_argument('--inv_temp', help="Inverse temp to use for IDA or other algorithms",type=float, default=None)
     parser.add_argument('--temp_inc', help="Increment in temperature after each task",type=float, default=None)
     parser.add_argument('--softmax_temp', help="Increment in temperature after the softmax activation", action='store_true')
+    parser.add_argument('--all_temp', help="Increment in temperature after the softmax activation", action='store_true')
+    parser.add_argument('--emb_temp', help="Increment in temperature after the embedding activation", action='store_true')
+    parser.add_argument('--enc_temp', help="Increment in temperature after the Encoder activation", action='store_true')
+    parser.add_argument('--layer_temp', help="Increment in temperature after each layer", action='store_true')
 
     parser.add_argument('--majority', help="Use Sequence to sequence",action='store_true')
     parser.add_argument('--tryno', type=int, default=1, help="This is ith try add this to name of df")
