@@ -26,8 +26,8 @@ class TransformerRepresentation(nn.Module):
                                      inv_temp=self.inv_temp,
                                      use_binary=use_binary)
         self.src_mask = None
-        self.transposed = self.args.transposed
-        self.pos_encoder = PositionalEncoding(emb_dim, dropout,transposed=self.transposed)
+        self.transposed = True
+        self.pos_encoder = PositionalEncoding(emb_dim, dropout, transposed=self.transposed)
         encoder_layers = TransformerEncoderLayer(self.memory.get_input_size(),
                                                  nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
@@ -46,7 +46,7 @@ class TransformerRepresentation(nn.Module):
         return self.memory.get_input_size()
 
     def forward(self, src, mask):
-        src = src.transpose(0,1) if self.transposed else src
+        src = src.transpose(0,1)
         if self.src_mask is None or self.src_mask.size(0) != len(src):
             device = src.device
             mask = self._generate_square_subsequent_mask(len(src)).to(device)
@@ -56,7 +56,7 @@ class TransformerRepresentation(nn.Module):
         src = self.pos_encoder(src) if not self.no_positional else src
         src_input = self.memory(src)
         output = self.transformer_encoder(src_input, self.src_mask)
-        output = output.transpose(0,1) if self.transposed else output
+        output = output.transpose(0,1)
         return torch.mean(output, dim=1)
 
 class PositionalEncoding(nn.Module):
