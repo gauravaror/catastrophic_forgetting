@@ -54,7 +54,6 @@ def evaluate_get_dataset(model, task, vocab, dataset, num_samples, task_id):
     if type(train_act) == list:
         # Hack for CNN need to do better
         train_act = train_act[-1]
-        print("tran ", train_act.shape)
         train_act = train_act.reshape(train_act.size(0), -1)
         train_act = train_act[:, :128]
     train_lab = torch.LongTensor(train_act.size(0)).fill_(task_id)
@@ -110,9 +109,7 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
     @trainer.on(Events.EPOCH_COMPLETED)
     def compute_metrics(engine):
         evaluator.run(train_dl)
-        print("Epoch", engine.state.epoch, "Training Accuracy", evaluator.state.metrics["accuracy"])
         val_evaluator.run(test_dl)
-        print("Validation Accuracy", val_evaluator.state.metrics["accuracy"])
 
     def score_function(engine):
         return engine.state.metrics['accuracy']
