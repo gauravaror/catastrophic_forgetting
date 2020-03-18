@@ -130,5 +130,5 @@ def task_diagnostics(tasks, train_data, val_data, vocabulary, model, args):
         #print("Task based accuracy", start, end , task, correct_this)
 
     metrics["overall"] = val_evaluator.state.metrics["accuracy"]
-    print(metrics)
+    print("Diagnostics metric", metrics)
     return metrics
