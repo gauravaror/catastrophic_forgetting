@@ -13,7 +13,7 @@ others=(trec sst cola subjectivity)
 newarr=()
 for i in "${others[@]}"; do if [ ! $i == "$first_task" ]; then echo $i; newarr+=("$i"); fi; done
 echo "${newarr[0]} ${newarr[1]} ${newarr[2]}"
-run_name='s_20m_mlp_softmax_emb_temp_exper_'
+run_name='s_22m_mlp_exper_'
 storage_prefix="./runs/${run_name}/${first_task}/"
 dropout=0.5
 patience=10
@@ -35,7 +35,7 @@ run_configuration() {
   hidden=$6
   try=$7
 
-  export CUDA_VISIBLE_DEVICES=0; /home/gaurava/miniconda3/envs/catastrophic/bin/python train.py   --task $first_task  --task  $second_task --task $third_task  --task  $fourth_task  --layers $layer --h_dim $hidden --dropout $dropout --run_name $run_name --tryno $try --epochs $epochs --patience $patience --storage_prefix $storage_prefix --bs $bs --e_dim  $e_dim --mlp --emb_temp --softmax_temp >> ${run_name}_${first_task}.log;
+  export CUDA_VISIBLE_DEVICES=0; /home/gaurava/miniconda3/envs/catastrophic/bin/python train.py   --task $first_task  --task  $second_task --task $third_task  --task  $fourth_task  --layers $layer --h_dim $hidden --dropout $dropout --run_name $run_name --tryno $try --epochs $epochs --patience $patience --storage_prefix $storage_prefix --bs $bs --e_dim  $e_dim --mlp>> ${run_name}_${first_task}.log;
   find $storage_prefix -name '*.pth' | xargs rm
 
 }
