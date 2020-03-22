@@ -50,7 +50,11 @@ class MainClassifier(Model):
     self.inv_temp = inv_temp
     self.temp_inc = temp_inc
     self.e_dim = e_dim
-    self.task_encoder =  True if task_embed else None
+    self.task_embedder =  True if task_embed else None
+
+    # Use transformer style task encoding
+    self.task_encoder = TaskEncoding(self.e_dim) if self.args.task_encode else None
+
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
     self.use_task_memory  = args.use_task_memory
@@ -101,16 +105,22 @@ class MainClassifier(Model):
         tokens = move_to_device(tokens, torch.cuda.current_device())
     mask = get_text_field_mask(tokens)
     embeddings = self.word_embeddings(tokens)
+
     if self.args.position_embed:
         embeddings = self.pos_embedding(embeddings)
-    if self.task_encoder:
+
+    # Task embedder add task id
+    if self.task_embedder:
         bs,seq,edi = embeddings.shape
         task_em = torch.randn((bs,seq,1))
         task_em.fill_(self.get_current_taskid())
         if torch.cuda.is_available():
             task_em = move_to_device(task_em, torch.cuda.current_device())
         embeddings = torch.cat([embeddings, task_em], dim=-1)
-        #embeddings = self.task_encoder(embeddings, self.get_current_taskid())
+
+    # Task encoding adds the id using transformer style.
+    if self.task_encoder:
+        embeddings = self.task_encoder(embeddings, self.get_current_taskid())
 
     # Increase temperature at embedding layer
     if (self.args.all_temp or self.args.emb_temp) and self.inv_temp:

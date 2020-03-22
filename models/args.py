@@ -39,7 +39,6 @@ def get_args():
     parser.add_argument('--h_dim', type=int, default=1150, help="Hidden Dimension")
     parser.add_argument('--s_dir', help="Serialization directory")
     parser.add_argument('--transformer', help="Use transformer unit",action='store_true')
-    parser.add_argument('--no_positional', help="Disable positional embeddings in transformer",action='store_true')
 #    parser.add_argument('--transposed', help="Use the transposed with sequence first in transformer",action='store_true')
     parser.add_argument('--train_embeddings', help="Enable fine-tunning of embeddings like elmo",action='store_true')
     parser.add_argument('--IDA', help="Use IDA Encoder",action='store_true')
@@ -47,8 +46,12 @@ def get_args():
     parser.add_argument('--ewc', help="Use Elastic Weight consolidation",action='store_true')
     parser.add_argument('--ewc_importance', type=int, default=1000, help="Use Elastic Weight consolidation importance to add weights")
     parser.add_argument('--ewc_normalise', type=str, help="Use Elastic Weight consolidation length, batches, none")
+
+    ## options to embed position and task information
     parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
+    parser.add_argument('--task_encode', action='store_true', help="Use the task encoding to encode task id using transformer style position encoding")
     parser.add_argument('--position_embed', action='store_true', help="Add the positional embeddings in the word embeddings.")
+    parser.add_argument('--no_positional', help="Disable positional embeddings in transformer",action='store_true')
 
     ## Memory related options
     parser.add_argument('--mem_size', help="Memory key size", type=int, default=300)
@@ -77,5 +80,9 @@ def get_args():
     parser.add_argument('--no_save_weight', action='store_true', help="Disable saving of weights")
 
     args = parser.parse_args()
+    if args.task_embed and args.transformer:
+        if args.e_dim % 2 == 0:
+            print("Need odd dimension for task embedding and transformer, reducing by one to make odd")
+            args.e_dim -= 1
     return args
 
