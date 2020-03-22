@@ -33,6 +33,7 @@ class LoadDatasets:
         if args.path:
             self.se_path = args.path + '/evaluate_csv_agg/aggregates/'+ args.metric +'/'
             self.fm_path = args.path + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df'
+            self.dg_path = args.path + 'evaluate_csv_agg/aggregates/task_diagnostics/overall.df'
         self.df = {}
         self.tasks = tasks
         self.load_tasks()
@@ -40,6 +41,7 @@ class LoadDatasets:
     def load_tasks(self):
         # Load Tasks ds
         self.total = pd.read_pickle(self.fm_path)
+        self.task_diag = pd.read_pickle(self.dg_path)
         for task in self.tasks:
             self.df[task] = pd.read_pickle(self.se_path + task + '.df')
 
@@ -95,12 +97,22 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
             value=dataset.tasks,
             multi=True),
         dcc.Graph(id='performance_plot'),
+        html.Div(children='Forgetting Metric', style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }),
         dcc.Graph(id='forgetting_plot'),
+        html.Div(children='Task Diagnostic classifier', style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }),
+        dcc.Graph(id='diagnostic_plot'),
 ])
 
 @app.callback(
     [Output('performance_plot', 'figure'),
-     Output('forgetting_plot', 'figure')],
+     Output('forgetting_plot', 'figure'),
+     Output('diagnostic_plot', 'figure')],
     [Input('code', 'value'),
      Input('exper', 'value'),
      Input('hdim', 'value'),
@@ -109,6 +121,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
 def update_graph(code, exper, hdim, layer, tasks):
     df = dataset.df
     total = dataset.total
+    task_diag = dataset.task_diag
     data = []
     splitcode = code.split('_')
     def get_name(current_row, task):
@@ -185,11 +198,24 @@ def update_graph(code, exper, hdim, layer, tasks):
     for i in range(len(tot_df)):
         current_row = tot_df.iloc[i]
         name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        rr = {'type': 'bar', 'x': [current_row['exper']], 'y': [current_row['step_2_mean']], 'error_y': dict(type='data', array=[current_row['step_2_var']]),'name': name}
+        rr = {'type': 'bar', 'x': [current_row['exper'].upper()], 'y': [current_row['step_2_mean']], 'error_y': dict(type='data', array=[current_row['step_2_var']]),'name': name}
         total_data.append(rr)
     print(total_data)
     fp = {'data':  total_data, 'layout': layout}
-    return pp,fp
+
+    diag_data =  []
+    diag_df = filter_df(task_diag)
+    for i in range(len(diag_df)):
+        current_row = diag_df.iloc[i]
+        name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
+        dg = {'type': 'bar', 'x': [current_row['exper'].upper()], 'y': [current_row['step_0_mean']], 'error_y': dict(type='data', array=[current_row['step_0_var']]),'name': name}
+        diag_data.append(dg)
+    print(diag_data)
+    dp = {'data':  diag_data, 'layout': layout}
+
+
+
+    return pp,fp,dp
 
 
 if __name__ == '__main__':
