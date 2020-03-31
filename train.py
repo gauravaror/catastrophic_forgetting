@@ -265,8 +265,8 @@ for tid,i in enumerate(train,1):
                                               tid)
         count += 1
         metric_acc += float(ometric[j]['metric'])
-	std_evl_acc += float(smetric[j])
-	micro_avg_acc += float(ometric[j]['micro_avg'])
+        std_evl_acc += float(smetric[j])
+        micro_avg_acc += float(ometric[j]['micro_avg'])
     if count:
         writer.add_scalar("avg_accuracy/evaluate", metric_acc/count)
         writer.add_scalar("avg_accuracy/standard_evaluate", std_evl_acc/count)
