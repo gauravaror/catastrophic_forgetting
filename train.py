@@ -249,6 +249,8 @@ for tid,i in enumerate(train,1):
                                                              model, args, save_weight)
     overall_metrics[i] = ometric
     ostandard_metrics[i] = smetric
+    count = 0
+    metric_acc = 0
     for j in smetric.keys():
         writer.add_scalar("evaluate/"+str(j),
                                               float(ometric[j]['metric']),
@@ -256,6 +258,17 @@ for tid,i in enumerate(train,1):
         writer.add_scalar("standard_evaluate/"+str(j),
                                               smetric[j],
                                               tid)
+        writer.add_scalar("micro_avg/"+str(j),
+                                              float(ometric[j]['micro_avg']),
+                                              tid)
+        count += 1
+        metric_acc += float(ometric[j]['micro_avg'])
+    if count:
+        writer.add_scalar("mean_micro_avg/", metric_acc/count)
+    else:
+        writer.add_scalar("mean_micro_avg/", -1);
+        print("No coiyn metric_acc")
+
 
 diag_metrics = diag.task_diagnostics(tasks, train_data, dev_data, vocabulary, model, args)
 for task,dacc in diag_metrics.items():

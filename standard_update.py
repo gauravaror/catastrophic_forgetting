@@ -5,7 +5,7 @@ from dash.dependencies import Input, Output
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('path', type=str, help="Aggregation path")
+parser.add_argument('--path', action="append", help="Aggregation path")
 parser.add_argument('--port', type=int, help="Port to start dash board on ", default=8050)
 parser.add_argument('--metric', type=str, help="Port to start dash board on ", default='standard_evaluate')
 args = parser.parse_args()
@@ -27,23 +27,36 @@ class LoadDatasets:
     def __init__(self, args, tasks=['trec', 'sst', 'cola', 'subjectivity']):
         self.args = args
         # Standard Evaluate path
-        self.se_path = args.metric + '/'
+        self.se_path = [] 
+        self.fm_path = [] 
+        self.dg_path = [] 
         # Forgetting Metric Path
-        self.fm_path = 'forgetting_metic/standard_total.df'
         if args.path:
-            self.se_path = args.path + '/evaluate_csv_agg/aggregates/'+ args.metric +'/'
-            self.fm_path = args.path + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df'
-            self.dg_path = args.path + 'evaluate_csv_agg/aggregates/task_diagnostics/overall.df'
+            for pth in args.path:
+                self.se_path.append(pth + '/evaluate_csv_agg/aggregates/'+ args.metric +'/')
+                self.fm_path.append(pth + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df')
+                self.dg_path.append(pth + 'evaluate_csv_agg/aggregates/task_diagnostics/overall.df')
         self.df = {}
         self.tasks = tasks
         self.load_tasks()
 
     def load_tasks(self):
         # Load Tasks ds
-        self.total = pd.read_pickle(self.fm_path)
-        self.task_diag = pd.read_pickle(self.dg_path)
+        self.ltotal = []
+        self.ltask_diag = []
+        self.ldf = {}
         for task in self.tasks:
-            self.df[task] = pd.read_pickle(self.se_path + task + '.df')
+            self.ldf[task] = []
+        for fm_pth, dg_pth, se_pth in zip(self.fm_path, self.dg_path, self.se_path):
+            self.ltotal.append(pd.read_pickle(fm_pth))
+            self.ltask_diag.append(pd.read_pickle(dg_pth))
+            for task in self.tasks:
+                self.ldf[task].append(pd.read_pickle(se_pth + task + '.df'))
+
+        self.total = pd.concat(self.ltotal, ignore_index=True)
+        self.task_diag = pd.concat(self.ltask_diag, ignore_index=True)
+        for task in self.tasks:
+            self.df[task] = pd.concat(self.ldf[task], ignore_index=True)
 
     def get_unique(self, attr='code'):
         output = []
@@ -198,7 +211,7 @@ def update_graph(code, exper, hdim, layer, tasks):
     for i in range(len(tot_df)):
         current_row = tot_df.iloc[i]
         name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        rr = {'type': 'bar', 'x': [current_row['exper'].upper()], 'y': [current_row['step_2_mean']], 'error_y': dict(type='data', array=[current_row['step_2_var']]),'name': name}
+        rr = {'type': 'bar', 'x': [name], 'y': [current_row['step_2_mean']], 'error_y': dict(type='data', array=[0.87*current_row['step_2_std']]),'name': current_row['exper'].upper()}
         total_data.append(rr)
     print(total_data)
     fp = {'data':  total_data, 'layout': layout}
@@ -208,7 +221,7 @@ def update_graph(code, exper, hdim, layer, tasks):
     for i in range(len(diag_df)):
         current_row = diag_df.iloc[i]
         name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        dg = {'type': 'bar', 'x': [current_row['exper'].upper()], 'y': [current_row['step_0_mean']], 'error_y': dict(type='data', array=[current_row['step_0_var']]),'name': name}
+        dg = {'type': 'bar', 'x': [name], 'y': [current_row['step_0_mean']], 'error_y': dict(type='data', array=[0.87*current_row['step_0_std']]),'name': current_row['exper'].upper()}
         diag_data.append(dg)
     print(diag_data)
     dp = {'data':  diag_data, 'layout': layout}

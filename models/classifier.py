@@ -4,6 +4,7 @@ import torch.optim as optim
 import numpy as np
 
 from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import f1_score
 
 from allennlp.data.dataset_readers import DatasetReader
 from allennlp.data.dataset_readers.stanford_sentiment_tree_bank import StanfordSentimentTreeBankDatasetReader
@@ -45,6 +46,7 @@ class MainClassifier(Model):
     self.accuracy = CategoricalAccuracy()
     self.loss_function = torch.nn.CrossEntropyLoss()
     self.average  = Average()
+    self.micro_avg  = Average()
     self.activations = []
     self.labels = []
     self.inv_temp = inv_temp
@@ -155,6 +157,7 @@ class MainClassifier(Model):
     if label is not None:
       _, preds = tag_logits.max(dim=1)
       self.average(matthews_corrcoef(label.data.cpu().numpy(), preds.data.cpu().numpy()))
+      self.micro_avg(f1_score(label.data.cpu().numpy(), preds.data.cpu().numpy(), average='micro'))
       self.accuracy(tag_logits, label)
       output["loss"] = self.loss_function(tag_logits, label)
       if self.use_task_memory:
@@ -166,7 +169,9 @@ class MainClassifier(Model):
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-    return {"accuracy": self.accuracy.get_metric(reset), "average": self.average.get_metric(reset)}
+      return {"accuracy": self.accuracy.get_metric(reset),
+              "average": self.average.get_metric(reset),
+              "micro_avg": self.micro_avg.get_metric(reset)}
 
   def get_activations(self) -> []:
     return self.activations, self.labels
