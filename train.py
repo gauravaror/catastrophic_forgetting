@@ -267,7 +267,8 @@ for tid,i in enumerate(train,1):
         metric_acc += float(ometric[j]['metric'])
         std_evl_acc += float(smetric[j])
         micro_avg_acc += float(ometric[j]['micro_avg'])
-    if count:
+    if count == len(train):
+        print("Average-Accuracy ",task_code,i, 'Metric', metric_acc/count, 'standard', std_evl_acc/count, 'micro', micro_avg_acc/count)
         writer.add_scalar("avg_accuracy/evaluate", metric_acc/count)
         writer.add_scalar("avg_accuracy/standard_evaluate", std_evl_acc/count)
         writer.add_scalar("avg_accuracy/micro_avg", micro_avg_acc/count)
