@@ -109,7 +109,9 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
             options=[{'label': i, 'value': i} for i in dataset.tasks],
             value=dataset.tasks,
             multi=True),
-        dcc.Graph(id='performance_plot'),
+        dcc.Tabs([
+        dcc.Tab(label='Performance', children=[dcc.Graph(id='performance_plot')]),
+        dcc.Tab(label='Forgetting Metric', children=[
         html.Div(children='Forgetting Metric', style={
             'textAlign': 'center',
             'color': colors['text']
@@ -119,13 +121,23 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
             'textAlign': 'center',
             'color': colors['text']
         }),
-        dcc.Graph(id='diagnostic_plot'),
+        dcc.Graph(id='diagnostic_plot')]),
+        dcc.Tab(label='Average Accuracy', children=[ 
+        dcc.Graph(id='forgetting_plot_copy'),
+        html.Div(children='Task Diagnostic classifier', style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }),
+        dcc.Graph(id='diagnostic_plot_copy')]),
+        ]),
 ])
 
 @app.callback(
     [Output('performance_plot', 'figure'),
      Output('forgetting_plot', 'figure'),
-     Output('diagnostic_plot', 'figure')],
+     Output('diagnostic_plot', 'figure'),
+     Output('forgetting_plot_copy', 'figure'),
+     Output('diagnostic_plot_copy', 'figure')],
     [Input('code', 'value'),
      Input('exper', 'value'),
      Input('hdim', 'value'),
@@ -228,7 +240,7 @@ def update_graph(code, exper, hdim, layer, tasks):
 
 
 
-    return pp,fp,dp
+    return pp,fp,dp,fp,dp
 
 
 if __name__ == '__main__':
