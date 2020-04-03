@@ -95,7 +95,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
         dcc.Dropdown(
             id='code',
             options=[{'label': i, 'value': i} for i in dataset.get_unique()],
-            value=dataset.get_unique()[0]
+            value='all'
         ),
         dcc.Dropdown(
             id='exper',
@@ -106,13 +106,13 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
         dcc.Dropdown(
             id='hdim',
             options=[{'label': i, 'value': i} for i in dataset.get_unique('hdim')],
-            value=dataset.get_unique('hdim')[:1],
+            value=['100'],
             multi=True
         ),
         dcc.Dropdown(
             id='layer',
             options=[{'label': i, 'value': i} for i in dataset.get_unique('layer')],
-            value=dataset.get_unique('layer')[:1],
+            value=['1'],
             multi=True),
         dcc.Dropdown(
             id='tasks',
