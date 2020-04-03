@@ -8,7 +8,6 @@ import math
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', action="append", help="Aggregation path")
 parser.add_argument('--port', type=int, help="Port to start dash board on ", default=8050)
-parser.add_argument('--metric', type=str, help="Port to start dash board on ", default='standard_evaluate')
 parser.add_argument('--num_data', type=int, help="Number of runs used to average", default=10)
 args = parser.parse_args()
 
@@ -130,26 +129,31 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
             options=[{'label': i, 'value': i} for i in dataset.metrics],
             value='standard_evaluate',
             multi=False),
-        dcc.Tabs([
-        dcc.Tab(label='Performance', children=[dcc.Graph(id='performance_plot')]),
-        dcc.Tab(label='Forgetting Metric', children=[
-        html.Div(children='Forgetting Metric', style={
-            'textAlign': 'center',
-            'color': colors['text']
-        }),
-        dcc.Graph(id='forgetting_plot'),
-        html.Div(children='Task Diagnostic classifier', style={
-            'textAlign': 'center',
-            'color': colors['text']
-        }),
-        dcc.Graph(id='diagnostic_plot')]),
-        dcc.Tab(label='Average Accuracy', children=[ 
-        dcc.Graph(id='forgetting_plot_copy'),
-        html.Div(children='Average Accuracy classifier', style={
-            'textAlign': 'center',
-            'color': colors['text']
-        }),
-        dcc.Graph(id='average_accuracy')]),
+        dcc.Tabs(id='tabs_main',value='forgetting',children=[
+            dcc.Tab(label='Performance',
+                    value='performance',
+                    children=[dcc.Graph(id='performance_plot')]),
+            dcc.Tab(label='Forgetting Metric',
+                    value='forgetting',
+                    children=[html.Div(children='Forgetting Metric', style={
+                                'textAlign': 'center',
+                                'color': colors['text']
+                        }),
+                        dcc.Graph(id='forgetting_plot'),
+                        html.Div(children='Task Diagnostic classifier', style={
+                            'textAlign': 'center',
+                            'color': colors['text']
+                        }),
+                        dcc.Graph(id='diagnostic_plot')]),
+            dcc.Tab(label='Average Accuracy',
+                    value='avg_accu',
+                    children=[ 
+                        dcc.Graph(id='forgetting_plot_copy'),
+                        html.Div(children='Average Accuracy classifier', style={
+                            'textAlign': 'center',
+                            'color': colors['text']
+                        }),
+                    dcc.Graph(id='average_accuracy')]),
         ]),
 ])
 
