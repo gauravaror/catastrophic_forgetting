@@ -40,12 +40,14 @@ class LoadDatasets:
         self.se_path = [] 
         self.fm_path = [] 
         self.dg_path = [] 
+        self.avg_acc_path = [] 
         # Forgetting Metric Path
         if args.path:
             for pth in args.path:
                 self.se_path.append(pth + '/evaluate_csv_agg/aggregates/'+ args.metric +'/')
                 self.fm_path.append(pth + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df')
                 self.dg_path.append(pth + 'evaluate_csv_agg/aggregates/task_diagnostics/overall.df')
+                self.avg_acc_path.append(pth + 'evaluate_csv_agg/aggregates/avg_accuracy/standard_evaluate.df')
         self.df = {}
         self.tasks = tasks
         self.load_tasks()
@@ -54,17 +56,20 @@ class LoadDatasets:
         # Load Tasks ds
         self.ltotal = []
         self.ltask_diag = []
+        self.lavg_acc = []
         self.ldf = {}
         for task in self.tasks:
             self.ldf[task] = []
-        for fm_pth, dg_pth, se_pth in zip(self.fm_path, self.dg_path, self.se_path):
+        for fm_pth, dg_pth, se_pth, av_ac_pth in zip(self.fm_path, self.dg_path, self.se_path, self.avg_acc_path):
             self.ltotal.append(pd.read_pickle(fm_pth))
             self.ltask_diag.append(pd.read_pickle(dg_pth))
+            self.lavg_acc.append(pd.read_pickle(av_ac_pth))
             for task in self.tasks:
                 self.ldf[task].append(pd.read_pickle(se_pth + task + '.df'))
 
         self.total = pd.concat(self.ltotal, ignore_index=True)
         self.task_diag = pd.concat(self.ltask_diag, ignore_index=True)
+        self.avg_acc = pd.concat(self.lavg_acc, ignore_index=True)
         for task in self.tasks:
             self.df[task] = pd.concat(self.ldf[task], ignore_index=True)
 
@@ -134,11 +139,11 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
         dcc.Graph(id='diagnostic_plot')]),
         dcc.Tab(label='Average Accuracy', children=[ 
         dcc.Graph(id='forgetting_plot_copy'),
-        html.Div(children='Task Diagnostic classifier', style={
+        html.Div(children='Average Accuracy classifier', style={
             'textAlign': 'center',
             'color': colors['text']
         }),
-        dcc.Graph(id='diagnostic_plot_copy')]),
+        dcc.Graph(id='average_accuracy')]),
         ]),
 ])
 
@@ -207,7 +212,7 @@ def get_bar_data(bar_df, step):
      Output('forgetting_plot', 'figure'),
      Output('diagnostic_plot', 'figure'),
      Output('forgetting_plot_copy', 'figure'),
-     Output('diagnostic_plot_copy', 'figure')],
+     Output('average_accuracy', 'figure')],
     [Input('code', 'value'),
      Input('exper', 'value'),
      Input('hdim', 'value'),
@@ -233,9 +238,13 @@ def update_graph(code, exper, hdim, layer, tasks):
             data.append(rr)
     pp = {'data': data, 'layout': layout}
 
+    # Forgetting Metric
     fp = get_bar_data(filter_df(dataset.total, code, exper, hdim, layer, tasks), 'step_2')
+    # Diagnostic Classfier
     dp = get_bar_data(filter_df(dataset.task_diag, code, exper, hdim, layer, tasks), 'step_0')
-    return pp,fp,dp,fp,dp
+    # Average Accuracy
+    aap = get_bar_data(filter_df(dataset.avg_acc, code, exper, hdim, layer, tasks), 'step_0')
+    return pp,fp,dp,fp,aap
 
 
 if __name__ == '__main__':
