@@ -34,7 +34,7 @@ dfs = {}
 tasks = ['trec', 'sst', 'cola', 'subjectivity']
 
 class LoadDatasets:
-    def __init__(self, args, tasks=['trec', 'sst', 'cola', 'subjectivity']):
+    def __init__(self, args, tasks=['trec', 'sst', 'cola', 'subjectivity'], metric='standard_evaluate'):
         self.args = args
         # Standard Evaluate path
         self.se_path = [] 
@@ -44,12 +44,13 @@ class LoadDatasets:
         # Forgetting Metric Path
         if args.path:
             for pth in args.path:
-                self.se_path.append(pth + '/evaluate_csv_agg/aggregates/'+ args.metric +'/')
+                self.se_path.append(pth + '/evaluate_csv_agg/aggregates/'+ metric +'/')
                 self.fm_path.append(pth + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df')
                 self.dg_path.append(pth + 'evaluate_csv_agg/aggregates/task_diagnostics/overall.df')
-                self.avg_acc_path.append(pth + 'evaluate_csv_agg/aggregates/avg_accuracy/' + args.metric + '.df')
+                self.avg_acc_path.append(pth + 'evaluate_csv_agg/aggregates/avg_accuracy/' + metric + '.df')
         self.df = {}
         self.tasks = tasks
+        self.metrics = ['standard_evaluate', 'micro_avg', 'evaluate']
         self.load_tasks()
 
     def load_tasks(self):
@@ -124,6 +125,11 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
             options=[{'label': i, 'value': i} for i in dataset.tasks],
             value=dataset.tasks,
             multi=True),
+        dcc.Dropdown(
+            id='metric',
+            options=[{'label': i, 'value': i} for i in dataset.metrics],
+            value='standard_evaluate',
+            multi=False),
         dcc.Tabs([
         dcc.Tab(label='Performance', children=[dcc.Graph(id='performance_plot')]),
         dcc.Tab(label='Forgetting Metric', children=[
@@ -217,8 +223,10 @@ def get_bar_data(bar_df, step):
      Input('exper', 'value'),
      Input('hdim', 'value'),
      Input('layer', 'value'),
-     Input('tasks', 'value')])
-def update_graph(code, exper, hdim, layer, tasks):
+     Input('tasks', 'value'),
+     Input('metric', 'value')])
+def update_graph(code, exper, hdim, layer, tasks, metric):
+    dataset = LoadDatasets(args, metric=metric)
     data = []
     splitcode = code.split('_')
     for task in tasks:
