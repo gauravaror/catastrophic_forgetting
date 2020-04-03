@@ -47,7 +47,7 @@ class LoadDatasets:
                 self.se_path.append(pth + '/evaluate_csv_agg/aggregates/'+ args.metric +'/')
                 self.fm_path.append(pth + 'evaluate_csv_agg/aggregates/forgetting_metric/standard_total.df')
                 self.dg_path.append(pth + 'evaluate_csv_agg/aggregates/task_diagnostics/overall.df')
-                self.avg_acc_path.append(pth + 'evaluate_csv_agg/aggregates/avg_accuracy/standard_evaluate.df')
+                self.avg_acc_path.append(pth + 'evaluate_csv_agg/aggregates/avg_accuracy/' + args.metric + '.df')
         self.df = {}
         self.tasks = tasks
         self.load_tasks()
