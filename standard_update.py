@@ -3,11 +3,13 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import argparse
+import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', action="append", help="Aggregation path")
 parser.add_argument('--port', type=int, help="Port to start dash board on ", default=8050)
 parser.add_argument('--metric', type=str, help="Port to start dash board on ", default='standard_evaluate')
+parser.add_argument('--num_data', type=int, help="Number of runs used to average", default=10)
 args = parser.parse_args()
 
 import pandas as pd
@@ -16,12 +18,20 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-dfs = {}
-tasks = ['trec', 'sst', 'cola', 'subjectivity']
 colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
+
+layout = {
+            'plot_bgcolor': colors['background'],
+            'paper_bgcolor': colors['background'],
+            'font': {
+                'color': colors['text']
+            }
+        }
+dfs = {}
+tasks = ['trec', 'sst', 'cola', 'subjectivity']
 
 class LoadDatasets:
     def __init__(self, args, tasks=['trec', 'sst', 'cola', 'subjectivity']):
@@ -132,6 +142,66 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
         ]),
 ])
 
+def get_name(current_row, task, exper, hdim, layer):
+    name=''
+    if len(exper) > 1:
+        name += "E_"+ str(current_row['exper'])
+    if len(hdim) > 1:
+        name += "_H_"+ str(current_row['hdim'])
+    if len(layer) > 1:
+        name += "_L_" + str(current_row['layer'])
+    if len(name) == 0 or len(tasks) > 1:
+        name += "_T_" + task
+    return name
+
+def get_prefix(total):
+    common_prefix=''
+    index = 0
+    while True:
+        char=None
+        for i in total.exper.unique():
+            if index >= len(i):
+                return ''
+            curr_char = i[index]
+            if not char:
+                char = curr_char
+            else:
+                if char != curr_char:
+                    return common_prefix
+        common_prefix += curr_char
+        index += 1
+
+def filter_df(this_df, code, exper, hdim, layer, tasks):
+    this_df = this_df[this_df['code'] == code] if not code == 'all' else this_df
+    this_df = this_df[this_df.exper.isin(exper)]
+    this_df = this_df[this_df.hdim.isin(hdim)]
+    this_df = this_df[this_df.layer.isin(layer)]
+    prefix = ''
+    if len(this_df) > 1:
+        prefix = get_prefix(this_df)
+    this_df.exper = this_df.exper.str.replace(prefix, '')
+    this_df.exper = this_df.exper.str.replace('_exper', '')
+    if code == 'all':
+        this_df = this_df.groupby(['hdim', 'exper', 'layer']).mean().reset_index()
+    return this_df
+
+def get_bar_data(bar_df, step):
+    bar_data = []
+    # Confidence interval multiplier
+    ci_mult = 1.960/math.sqrt(args.num_data)
+    for i in range(len(bar_df)):
+        current_row = bar_df.iloc[i]
+        name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
+        bar_data.append({'type': 'bar',
+              'x': [name],
+              'y': [current_row[step + '_mean']],
+              'error_y': dict(type='data', array=[ci_mult*current_row[step+'_std']]),
+              'name': current_row['exper'].upper()
+              })
+    return {'data':  bar_data, 'layout': layout}
+
+
+
 @app.callback(
     [Output('performance_plot', 'figure'),
      Output('forgetting_plot', 'figure'),
@@ -144,57 +214,10 @@ app.layout = html.Div(style={'backgroundColor': colors['background']},
      Input('layer', 'value'),
      Input('tasks', 'value')])
 def update_graph(code, exper, hdim, layer, tasks):
-    df = dataset.df
-    total = dataset.total
-    task_diag = dataset.task_diag
     data = []
     splitcode = code.split('_')
-    def get_name(current_row, task):
-        name=''
-        if len(exper) > 1:
-            name += "E_"+ str(current_row['exper'])
-        if len(hdim) > 1:
-            name += "_H_"+ str(current_row['hdim'])
-        if len(layer) > 1:
-            name += "_L_" + str(current_row['layer'])
-        if len(name) == 0 or len(tasks) > 1:
-            name += "_T_" + task
-        return name
-
-    def get_prefix(total):
-        common_prefix=''
-        index = 0
-        while True:
-            char=None
-            for i in total.exper.unique():
-                if index >= len(i):
-                    return ''
-                curr_char = i[index]
-                if not char:
-                    char = curr_char
-                else:
-                    if char != curr_char:
-                        return common_prefix
-            common_prefix += curr_char
-            index += 1
-
-    def filter_df(this_df):
-        this_df = this_df[this_df['code'] == code] if not code == 'all' else this_df
-        this_df = this_df[this_df.exper.isin(exper)]
-        this_df = this_df[this_df.hdim.isin(hdim)]
-        this_df = this_df[this_df.layer.isin(layer)]
-        prefix = ''
-        if len(this_df) > 1:
-            prefix = get_prefix(this_df)
-        this_df.exper = this_df.exper.str.replace(prefix, '')
-        this_df.exper = this_df.exper.str.replace('_exper', '')
-        if code == 'all':
-            this_df = this_df.groupby(['hdim', 'exper', 'layer']).mean().reset_index()
-        return this_df
-
-
     for task in tasks:
-        my_df = filter_df(df[task])
+        my_df = filter_df(dataset.df[task], code, exper, hdim, layer, tasks)
         if len(my_df) == 0:
             print("Not found this config", exper, hdim, layer, code)
             continue
@@ -206,40 +229,12 @@ def update_graph(code, exper, hdim, layer, tasks):
                   'type': 'line', 'x': splitcode, 
                   'y': accuracy,
                   'error_y': dict(type='data', array=variance),
-                  'name': get_name(current_row, task) }
-            print(rr)
+                  'name': get_name(current_row, task, exper, hdim, layer) }
             data.append(rr)
-    layout = {
-                'plot_bgcolor': colors['background'],
-                'paper_bgcolor': colors['background'],
-                'font': {
-                    'color': colors['text']
-                }
-            }
     pp = {'data': data, 'layout': layout}
 
-    total_data =  []
-    tot_df = filter_df(total)
-    for i in range(len(tot_df)):
-        current_row = tot_df.iloc[i]
-        name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        rr = {'type': 'bar', 'x': [name], 'y': [current_row['step_2_mean']], 'error_y': dict(type='data', array=[0.87*current_row['step_2_std']]),'name': current_row['exper'].upper()}
-        total_data.append(rr)
-    print(total_data)
-    fp = {'data':  total_data, 'layout': layout}
-
-    diag_data =  []
-    diag_df = filter_df(task_diag)
-    for i in range(len(diag_df)):
-        current_row = diag_df.iloc[i]
-        name = "L_" + str(current_row['layer']) + "_H_" + str(current_row['hdim'])
-        dg = {'type': 'bar', 'x': [name], 'y': [current_row['step_0_mean']], 'error_y': dict(type='data', array=[0.87*current_row['step_0_std']]),'name': current_row['exper'].upper()}
-        diag_data.append(dg)
-    print(diag_data)
-    dp = {'data':  diag_data, 'layout': layout}
-
-
-
+    fp = get_bar_data(filter_df(dataset.total, code, exper, hdim, layer, tasks), 'step_2')
+    dp = get_bar_data(filter_df(dataset.task_diag, code, exper, hdim, layer, tasks), 'step_0')
     return pp,fp,dp,fp,dp
 
 
