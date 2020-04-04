@@ -165,15 +165,18 @@ itrainer = Engine(update)
 ievaluator = Engine(validate)
 
 
-@itrainer.on(Events.COMPLETED(every=2))
+@itrainer.on(Events.EPOCH_COMPLETED(every=5))
 def log_training(engine):
     batch_loss = engine.state.output['loss']
+    ewc_loss = 0
+    if 'ewc_loss' in engine.state.output:
+        ewc_loss = engine.state.output['ewc_loss']
     metric = model.get_metrics()
     lr = optimizer.param_groups[0]['lr']
     e = engine.state.epoch
     n = engine.state.max_epochs
     i = engine.state.iteration
-    print("Epoch {}/{} : {} - batch loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, lr, metric['accuracy'], metric['average']))
+    print("Epoch {}/{} : {} - batch loss: {}, ewc loss: {}, lr: {}, accuracy: {}, average: {} ".format(e, n, i, batch_loss, ewc_loss, lr, metric['accuracy'], metric['average']))
 
 pbar = ProgressBar()
 pbar.attach(itrainer, ['loss'])

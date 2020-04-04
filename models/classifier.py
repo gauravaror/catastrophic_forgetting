@@ -163,7 +163,8 @@ class MainClassifier(Model):
       if self.use_task_memory:
           output["loss"] += self.task_memory.get_memory_loss(self.current_task)
       if (self.args.ewc or self.args.oewc) and self.training:
-          output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
+          output["ewc_loss"] = self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
+          output["loss"] += output["ewc_loss"]
           output["loss"].backward(retain_graph=True)
           if self._len_dataset:
             self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
