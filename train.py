@@ -216,10 +216,11 @@ best_save = Checkpoint(to_save,
                        global_step_transform=global_step_from_engine(itrainer))
 ievaluator.add_event_handler(Events.COMPLETED, best_save)
 
-def reset_state():
-    print("Best of last task", best_save.last_checkpoint)
-    best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
-    best_save._saved = []
+def reset_state(reset_model=True):
+    if reset_model:
+        print("Best of last task", best_save.last_checkpoint)
+        best_save.load_objects({'model': model}, {'model': torch.load(run_name + "/" + best_save.last_checkpoint)})
+        best_save._saved = []
     early_stop_metric.counter = 0
     early_stop_metric.best_score = None
     itrainer.state.epoch = 0
@@ -238,13 +239,23 @@ for tid,i in enumerate(train,1):
           normaliser = len(train_data[i])/args.bs
     else:
           normaliser  = 1
-    model.set_task(i, training=training_, normaliser=normaliser)
+    if args.ewc:
+        normaliser_ = normaliser
+    else:
+        normaliser_ = None
+    model.set_task(i, training=training_, normaliser=normaliser_)
     iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocabulary[i])
     raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
     itrainer.run(groups, max_epochs=args.epochs)
-    reset_state()
+    if args.oewc:
+        reset_state(reset_model=False)
+        model.set_task(i, training=training_, normaliser=normaliser)
+        itrainer.run(groups, max_epochs=1)
+        reset_state()
+    else:
+        reset_state()
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
                                                              model, args, save_weight)
     overall_metrics[i] = ometric

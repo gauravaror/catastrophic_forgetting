@@ -66,7 +66,7 @@ class MainClassifier(Model):
         self.classifier_dim = self.task_memory.get_output_dim()
     self.classification_layers = torch.nn.ModuleList([torch.nn.Linear(in_features=self.classifier_dim, out_features=self.vocab.get_vocab_size('labels'))])
     self._len_dataset = None
-    if self.args.ewc:
+    if self.args.ewc or self.args.oewc:
         self.ewc = EWC(self)
 
   def add_target_padding(self):
@@ -162,10 +162,11 @@ class MainClassifier(Model):
       output["loss"] = self.loss_function(tag_logits, label)
       if self.use_task_memory:
           output["loss"] += self.task_memory.get_memory_loss(self.current_task)
-      if self.args.ewc and self.training:
+      if (self.args.ewc or self.args.oewc) and self.training:
           output["loss"] += self.args.ewc_importance*self.ewc.penalty(self.get_current_taskid())
           output["loss"].backward(retain_graph=True)
-          self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
+          if self._len_dataset:
+            self.ewc.update_penalty(self.task2id[self.current_task], self, self._len_dataset)
     return output
 
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
