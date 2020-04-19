@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=1000, help="Number of epochs to train for")
     parser.add_argument('--layers', type=int, default=1, help="Number of layers")
     parser.add_argument('--dropout', type=float, default=0, help="Use dropout")
+    parser.add_argument('--batch_norm', action='store_true', help="Use Batch Normalisation Only MLP for now")
     parser.add_argument('--bs', type=int, default=64, help="Batch size to use")
     parser.add_argument('--bidirectional', action='store_true', help="Run LSTM Network using bi-directional network.")
     parser.add_argument('--embeddings', help="Use which embedding ElMO embeddings or BERT",type=str, default='default')
@@ -85,5 +86,7 @@ def get_args():
         if args.e_dim % 2 == 0:
             print("Need odd dimension for task embedding and transformer, reducing by one to make odd")
             args.e_dim -= 1
+    if (args.transformer or args.cnn or args.lstm) and args.batch_norm:
+        raise Exception("Batch Normalisation is currently only supported for MLP")
     return args
 
