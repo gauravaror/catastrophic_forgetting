@@ -47,6 +47,7 @@ def get_args():
     parser.add_argument('--ewc', help="Use Elastic Weight consolidation",action='store_true')
     parser.add_argument('--oewc', help="Use Our during training fisher Elastic Weight consolidation",action='store_true')
     parser.add_argument('--ewc_importance', type=int, default=1000, help="Use Elastic Weight consolidation importance to add weights")
+    parser.add_argument('--ewc_samples', type=int, default=240, help="Number of samples to use for training ewc loss")
     parser.add_argument('--ewc_normalise', type=str, help="Use Elastic Weight consolidation length, batches, none")
 
     ## options to embed position and task information

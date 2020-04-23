@@ -255,6 +255,8 @@ for tid,i in enumerate(train,1):
     if args.oewc:
         reset_state(reset_model=False)
         model.set_task(i, training=training_, normaliser=normaliser)
+        raw_train_generator = iterator(train_data[i][:args.ewc_samples], num_epochs=1)
+        groups = list(raw_train_generator)
         itrainer.run(groups, max_epochs=1)
         reset_state()
     else:
