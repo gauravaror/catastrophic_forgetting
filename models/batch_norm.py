@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from allennlp.nn.util import move_to_device
 
 # Taken from Annotated Transformer Blog post (https://nlp.seas.harvard.edu/2018/04/03/attention.html#attention)
 class LayerNorm(nn.Module):
@@ -16,6 +17,9 @@ class LayerNorm(nn.Module):
     def add_norm_param(self):
         self.a_2.append(nn.Parameter(torch.ones(self.features)))
         self.b_2.append(nn.Parameter(torch.zeros(self.features)))
+        if torch.cuda.is_available():
+            self.a_2 = move_to_device(self.a_2, torch.cuda.current_device())
+            self.b_2 = move_to_device(self.b_2, torch.cuda.current_device())
 
     def forward(self, x, tid):
         if len(self.a_2) < tid:
