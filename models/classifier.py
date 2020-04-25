@@ -22,6 +22,7 @@ from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
 from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
+from models.task_projection import TaskProjection
 from models.transformer_encoder import PositionalEncoding
 from models.ewc import EWC
 from allennlp.nn.util import move_to_device
@@ -56,6 +57,7 @@ class MainClassifier(Model):
 
     # Use transformer style task encoding
     self.task_encoder = TaskEncoding(self.e_dim) if self.args.task_encode else None
+    self.task_projection = TaskProjection(self.e_dim) if self.args.task_projection else None
 
     self.pos_embedding = PositionalEncoding(self.e_dim, 0.5) if self.args.position_embed else None
     self.args = args
@@ -123,6 +125,10 @@ class MainClassifier(Model):
     # Task encoding adds the id using transformer style.
     if self.task_encoder:
         embeddings = self.task_encoder(embeddings, self.get_current_taskid())
+
+    # Task projection adds the id using single linear layer projection from one hot encoding
+    if self.task_projection:
+        embeddings = self.task_projection(embeddings, self.get_current_taskid())
 
     # Increase temperature at embedding layer
     if (self.args.all_temp or self.args.emb_temp) and self.inv_temp:

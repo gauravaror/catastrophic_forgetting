@@ -53,6 +53,7 @@ def get_args():
     ## options to embed position and task information
     parser.add_argument('--task_embed', action='store_true', help="Use the task encoding to encode task id")
     parser.add_argument('--task_encode', action='store_true', help="Use the task encoding to encode task id using transformer style position encoding")
+    parser.add_argument('--task_projection', action='store_true', help="Use the task projection to task id using Linear layer projection from one hot encoding")
     parser.add_argument('--position_embed', action='store_true', help="Add the positional embeddings in the word embeddings.")
     parser.add_argument('--no_positional', help="Disable positional embeddings in transformer",action='store_true')
 
