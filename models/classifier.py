@@ -20,6 +20,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
+from models.mlp import MLP
 from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
 from models.task_projection import TaskProjection
@@ -136,6 +137,8 @@ class MainClassifier(Model):
 
     if type(self.encoder) == HashedMemoryRNN:
         output = self.encoder(embeddings, mask, mem_tokens=tokens)
+    if type(self.encoder) == MLP:
+        output = self.encoder(embeddings, mask, tid=task_id)
     else:
         output = self.encoder(embeddings, mask)
     if type(output) == tuple:
