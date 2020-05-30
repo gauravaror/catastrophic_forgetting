@@ -3,7 +3,7 @@ from allennlp.training.util import evaluate
 from allennlp.data.iterators import BucketIterator
 import torch
 import pandas as pd
-def evaluate_all_tasks(task, evaluate_tasks, dev_data, vocabulary, model, args, save_weight):
+def evaluate_all_tasks(task, evaluate_tasks, dev_data, vocabulary, model, args, save_weight, temps):
     devicea = -1
     if torch.cuda.is_available():
         devicea = 0
@@ -28,7 +28,7 @@ def evaluate_all_tasks(task, evaluate_tasks, dev_data, vocabulary, model, args, 
     overall_metric = {}
     standard_metric = {}
     for j in evaluate_tasks:
-        model.set_task(j)
+        model.set_task(j, tmp=temps[j])
         print("\nEvaluating ", j)
         sys.stdout.flush()
         iterator1 = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
