@@ -1,0 +1,24 @@
+%\documentclass[tikz]{standalone}
+%\usetikzlibrary{positioning,chains}
+%\usepackage{ifthen}
+
+%\begin{document}
+
+\begin{tikzpicture}[node distance=0 cm,outer sep = 1pt,transform shape,scale=0.6]
+    \tikzstyle{ML0} = [anchor=north east,circle, minimum width=1cm, minimum height=1cm, text centered, draw=black, fill=red!30]
+    \tikzstyle{ML1} = [anchor=north east,circle, minimum width=1cm, minimum height=1cm, text centered, draw=black, fill=purple!30]
+    \tikzstyle{ML2} = [anchor=north east,circle, minimum width=1cm, minimum height=1cm, text centered, draw=black, fill=green!30]
+    \node (i1) at (5.7,2.7)  [rectangle, align=center, draw, very thick, fill=red!10, minimum height=21em, minimum width=38em] {};
+    \foreach \x in {0,...,8}
+      \foreach \y in {0,...,4}
+      {\pgfmathtruncatemacro{\label}{Mod(\x - 5 *  \y +21,3 )}
+	\ifthenelse{\label = 0}
+    {\node [ML0]  (\x\y) at (1.5*\x,1.5*\y) {T1}}
+    {\ifthenelse{\label = 1} 
+{\node [ML1]  (\x\y) at (1.5*\x,1.5*\y) {T2}}
+{\node [ML2]  (\x\y) at (1.5*\x,1.5*\y) {Free}}
+}
+    ;}
+\end{tikzpicture}
+
+%\end{document}
