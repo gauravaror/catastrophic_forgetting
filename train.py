@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import pandas as pd
 import random
+from collections import defaultdict
 
 from models.utils import get_catastrophic_metric
 from allennlp.data.vocabulary import Vocabulary
@@ -228,6 +229,16 @@ def reset_state(reset_model=True):
     early_stop_metric.best_score = None
     itrainer.state.epoch = 0
 
+# Temperature set
+temps = defaultdict(lambda: 1)
+if args.inv_temp:
+    temps[train[0]] = args.inv_temp
+    temp_temp = args.inv_temp
+    for i in train[1:]:
+        temp_temp *= args.temp_inc
+        temps[i] = temp_temp
+    print("temperatures startt", temps)
+
 for tid,i in enumerate(train,1):
     current_task = i
     print("\nTraining task ", i)
@@ -246,7 +257,7 @@ for tid,i in enumerate(train,1):
         normaliser_ = normaliser
     else:
         normaliser_ = None
-    model.set_task(i, training=training_, normaliser=normaliser_)
+    model.set_task(i, training=training_, normaliser=normaliser_, tmp=temps[i])
     iterator = BucketIterator(batch_size=args.bs, sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocabulary[i])
     raw_train_generator = iterator(train_data[i], num_epochs=1)
@@ -254,7 +265,7 @@ for tid,i in enumerate(train,1):
     itrainer.run(groups, max_epochs=args.epochs)
     if args.oewc:
         reset_state(reset_model=False)
-        model.set_task(i, training=training_, normaliser=normaliser)
+        model.set_task(i, training=training_, normaliser=normaliser, tmp=temps[i])
         raw_train_generator = iterator(train_data[i][:args.ewc_samples], num_epochs=1)
         groups = list(raw_train_generator)
         itrainer.run(groups, max_epochs=1)
@@ -262,7 +273,7 @@ for tid,i in enumerate(train,1):
     else:
         reset_state()
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
-                                                             model, args, save_weight)
+                                                             model, args, save_weight, temps)
     overall_metrics[i] = ometric
     ostandard_metrics[i] = smetric
     count = 0

@@ -88,15 +88,17 @@ class MainClassifier(Model):
       else:
           self.loss_function = torch.nn.CrossEntropyLoss()
 
-  def set_task(self, task_tag: str, training: bool = False, normaliser = None):
+  def set_task(self, task_tag: str, training: bool = False, normaliser = None, tmp=None):
     #self.hidden2tag = self.classification_layers[self.task2id[task_tag]]
     self.training = training
     self.current_task = task_tag
     if training and (not normaliser is None):
         self._len_dataset = normaliser
     self.vocab = self.tasks_vocabulary[task_tag]
-    if training and self.temp_inc:
-        self.inv_temp = self.temp_inc*self.inv_temp
+    if self.inv_temp:
+        self.inv_temp = tmp
+        print("Temperature set to ", self.inv_temp)
+
 
   def get_current_taskid(self):
       return self.task2id[self.current_task]
