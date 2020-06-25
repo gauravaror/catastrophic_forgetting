@@ -14,6 +14,7 @@ def get_args():
     # CNN Params
     parser.add_argument('--cnn', action='store_true', help="Use CNN")
     parser.add_argument('--mlp', action='store_true', help="Use Multi Layer Preceptron")
+    parser.add_argument('--mlp_hat', action='store_true', help="Use Multi Layer Preceptron with HAT")
     parser.add_argument('--lstm', action='store_true', help="Use LSTM architecture")
     parser.add_argument('--pyramid', action='store_true', help="Use Deep Pyramid CNN works only when --cnn is applied")
     parser.add_argument('--ngram_filter', type=int, default=2, help="Ngram filter size to send in")

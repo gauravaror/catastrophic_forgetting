@@ -20,6 +20,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
+from models.mlp_hat import MLPHat
 from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
 from models.task_projection import TaskProjection
@@ -138,6 +139,11 @@ class MainClassifier(Model):
 
     if type(self.encoder) == HashedMemoryRNN:
         output = self.encoder(embeddings, mask, mem_tokens=tokens)
+    elif type(self.encoder) == MLPHat:
+        ta = torch.LongTensor([self.get_current_taskid()-1])
+        if torch.cuda.is_available():
+            ta = move_to_device(ta, torch.cuda.current_device())
+        output, _ = self.encoder(ta, embeddings)
     else:
         output = self.encoder(embeddings, mask)
     if type(output) == tuple:
@@ -149,7 +155,6 @@ class MainClassifier(Model):
     self.activations = activations
     self.labels = label
 
-    # Increase temperature at encoder layer
     if (self.args.all_temp or self.args.enc_temp) and self.inv_temp:
         encoder_out = self.inv_temp*encoder_out
 

@@ -8,13 +8,14 @@ from models.cnn_encoder import CnnEncoder
 from models.encoder_IDA import EncoderRNN
 from models.hashedIDA import HashedMemoryRNN
 from models.mlp import MLP
+from models.mlp_hat import MLPHat
 from models.transformer_encoder import TransformerRepresentation
 from models.classifier import MainClassifier
 from models.other_classifier import Seq2SeqClassifier, MajorityClassifier
 from models.mean_classifier import MeanClassifier
 import models.utils as utils
 
-def get_model(vocab, word_embeddings, word_embedding_dim, args):
+def get_model(vocab, word_embeddings, word_embedding_dim, args, tasks):
     if args.cnn:
         experiment="cnn_"
         experiment += args.pooling
@@ -72,6 +73,12 @@ def get_model(vocab, word_embeddings, word_embedding_dim, args):
                       args.layers,
                       use_binary=args.use_binary,
                       batch_norm=args.batch_norm)
+    elif args.mlp_hat:
+        experiment = "mlp_hat"
+        encoder = MLPHat(word_embedding_dim,
+                      args.h_dim,
+                      args.layers,
+                      tasks)
     else:
         raise "Unknown model"
 

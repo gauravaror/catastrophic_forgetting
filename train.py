@@ -3,6 +3,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 import sys
+import copy
 import pandas as pd
 import random
 from collections import defaultdict
@@ -33,6 +34,7 @@ from ignite.handlers import EarlyStopping, Checkpoint, DiskSaver, global_step_fr
 
 from tensorboardX import SummaryWriter
 
+torch.autograd.set_detect_anomaly(True)
 
 args = get_args()
 
@@ -47,6 +49,10 @@ train_data = {}
 dev_data = {}
 few_data = {}
 vocabulary = {}
+
+smax = 400
+lamb = 0.75
+current_tid = 0
 
 for task in tasks:
   utils.load_dataset(task, train_data, dev_data, few_data, args.embeddings, special=True)
@@ -112,7 +118,7 @@ if args.task_embed:
     if args.transformer and word_embedding_dim % 2 != 0:
         raise Exception("Transformer and task embedded should have even dimension for PositionalEmbeddings")
 
-model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args)
+model, experiment = net.get_model(vocab, word_embeddings, word_embedding_dim, args, tasks)
 print("Running Experiment " , experiment)
 
 save_weight = None
@@ -140,6 +146,23 @@ if torch.cuda.is_available():
 overall_metrics = {}
 ostandard_metrics = {}
 
+mask_pre = None
+mask_back = None
+
+def criterion(loss, masks):
+    reg=0
+    count=0
+    if mask_pre is not None:
+        for m,mp in zip(masks, mask_pre):
+            aux = 1-mp
+            reg += (m*aux).sum()
+            count += aux.sum()
+    else:
+        for m in masks:
+            reg += m.sum()
+            count += np.prod(m.size()).item()
+    reg/=count
+    return loss + lamb*reg
 
 
 def update(engine, batch):
@@ -151,6 +174,33 @@ def update(engine, batch):
     optimizer.step()
     return output
 
+def update_hat(engine, batch):
+    thres_cosh=50
+    thres_emb=6
+    model.train()
+    optimizer.zero_grad()
+    s=(smax-1/smax)*engine.state.iteration/engine.state.epoch_length+1/smax
+    batch  = move_to_device(batch, devicea)
+    output = model(batch['tokens'], batch['label'])
+    output["loss"] = criterion(output["loss"], model.encoder.get_masks())
+    output["loss"].backward()
+    # Restrict layer gradients in backprop
+    if current_tid > 1:
+        for n,p in model.encoder.named_parameters():
+            if n in mask_back:
+                p.grad.data *= mask_back[n]
+
+    # Compensate embedding gradients
+    for n,p in model.encoder.named_parameters():
+        if n.startswith('e'):
+            num = torch.cosh(torch.clamp(s*p.data,-thres_cosh,thres_cosh)) + 1
+            den = torch.cosh(p.data) + 1
+            p.grad.data *= smax/s*num/den
+
+    optimizer.step()
+    return output
+
+
 def validate(engine, batch):
     model.eval()
     batch = move_to_device(batch, devicea)
@@ -161,8 +211,10 @@ def validate(engine, batch):
     engine.state.metric['loss'] = output['loss']
 
 
-
-itrainer = Engine(update)
+if args.mlp_hat:
+    itrainer = Engine(update_hat)
+else:
+    itrainer = Engine(update)
 ievaluator = Engine(validate)
 
 
@@ -241,6 +293,7 @@ if args.inv_temp:
 
 for tid,i in enumerate(train,1):
     current_task = i
+    current_tid = tid
     print("\nTraining task ", i)
     sys.stdout.flush()
     if args.pad_memory:
@@ -263,6 +316,25 @@ for tid,i in enumerate(train,1):
     raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
     itrainer.run(groups, max_epochs=args.epochs)
+
+    if args.mlp_hat:
+        # Activations mask
+        task=torch.autograd.Variable(torch.LongTensor([tid]).cuda(),volatile=False)
+        mask = copy.copy(model.encoder.get_masks())
+
+        if current_tid == 1:
+            mask_pre = mask
+        else:
+            mask_pre = copy.copy(torch.max(mask_pre, mask))
+
+        # Weights mask
+        mask_back={}
+        for n,_ in model.named_parameters():
+            vals = model.encoder.get_view_for(n, mask_pre)
+            if vals is not None:
+                mask_back[n] = 1 - vals
+
+
     if args.oewc:
         reset_state(reset_model=False)
         model.set_task(i, training=training_, normaliser=normaliser, tmp=temps[i])
