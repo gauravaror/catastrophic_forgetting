@@ -1,0 +1,4 @@
+\beamer@sectionintoc {1}{Current Methods}{20}{0}{1}
+\beamer@sectionintoc {2}{Investigative Study}{23}{0}{2}
+\beamer@sectionintoc {3}{Reducing forgetting using Temperature and Task Information}{26}{0}{3}
+\beamer@sectionintoc {4}{Summary}{30}{0}{4}

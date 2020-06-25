@@ -1,0 +1,18 @@
+\newcommand{\perfplot}[3]{\begin{tikzpicture}
+\begin{axis}[width=0.70\textwidth,
+    height=0.6\textheight,
+%    title={Performance Plot for task sequence #2},
+    title style={font=\tiny},
+    xlabel={Tasks},
+    ylabel={Accuracy},
+    symbolic x coords={#2},
+    xtick=data,
+    legend style={
+    font=\tiny,
+    cells={anchor=west},
+    legend pos=outer north east,}]
+    \foreach \x in {#3}
+    	\addplot table [x=TASK,y=\x] {#1};
+    \legend{#3}
+\end{axis}
+\end{tikzpicture}}

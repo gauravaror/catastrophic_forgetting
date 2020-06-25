@@ -1,0 +1,7 @@
+\begin{tikzpicture}[node distance=0 cm,outer sep = 1pt]
+    \tikzstyle{ML} = [anchor=north east,rectangle, minimum width=11.2em, minimum height=1cm, text width=2cm, text centered, draw=black, fill=orange!30]
+    \node (i1)  [anchor=south west, rectangle, align=center, draw, very thick, fill=red!10, minimum height=8em, minimum width=33.6em] {Shared Backbone};
+    \node (c2)  [ML,above=of i1] {Traffic Lights};
+    \node (c1)  [ML,left=of c2] {Objects};
+    \node (c3)  [ML,right=of c2] {Marking};
+\end{tikzpicture}
