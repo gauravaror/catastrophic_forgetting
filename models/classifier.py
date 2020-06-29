@@ -108,7 +108,7 @@ class MainClassifier(Model):
   def get_current_taskid(self):
       return self.task2id[self.current_task]
 
-  def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None, task_id = None) -> Dict[str, torch.Tensor]:
+  def forward(self, tokens: Dict[str, torch.Tensor], label: torch.Tensor = None, task_id = None, s=1) -> Dict[str, torch.Tensor]:
     if (task_id is None):
         task_id = self.get_current_taskid()
     hidden2tag = self.classification_layers[task_id]
@@ -147,7 +147,7 @@ class MainClassifier(Model):
         ta = torch.LongTensor([self.get_current_taskid()-1])
         if torch.cuda.is_available():
             ta = move_to_device(ta, torch.cuda.current_device())
-        output, masks = self.encoder(ta, embeddings)
+        output, masks = self.encoder(ta, embeddings, s)
         self.hat_masks = masks
     else:
         output = self.encoder(embeddings, mask)

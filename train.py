@@ -51,8 +51,8 @@ few_data = {}
 vocabulary = {}
 
 smax = 400
-#lamb = 0.75
-lamb = 0.0001
+lamb = 0.75
+#lamb = 0.0001
 current_tid = 0
 clipgrad = 10000 
 
@@ -183,7 +183,7 @@ def update_hat(engine, batch):
     optimizer.zero_grad()
     s=(smax-1/smax)*engine.state.iteration/engine.state.epoch_length+1/smax
     batch  = move_to_device(batch, devicea)
-    output = model(batch['tokens'], batch['label'])
+    output = model(batch['tokens'], batch['label'], s=s)
     mask = model.get_hat_masks()
     #task= torch.LongTensor([tid]).cuda()
     #mask = copy.copy(model.encoder.mask(task, s))
