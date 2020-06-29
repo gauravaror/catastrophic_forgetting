@@ -7,8 +7,8 @@ from allennlp.modules.seq2vec_encoders import Seq2VecEncoder, PytorchSeq2VecWrap
 from models.cnn_encoder import CnnEncoder
 from models.encoder_IDA import EncoderRNN
 from models.hashedIDA import HashedMemoryRNN
-from models.mlp import MLP
-from models.mlp_hat import MLPHat
+from models.mlp_hat import Net as MLP
+#from models.mlp_hat import MLPHat
 from models.transformer_encoder import TransformerRepresentation
 from models.classifier import MainClassifier
 from models.other_classifier import Seq2SeqClassifier, MajorityClassifier
@@ -75,10 +75,11 @@ def get_model(vocab, word_embeddings, word_embedding_dim, args, tasks):
                       batch_norm=args.batch_norm)
     elif args.mlp_hat:
         experiment = "mlp_hat"
-        encoder = MLPHat(word_embedding_dim,
-                      args.h_dim,
-                      args.layers,
-                      tasks)
+        encoder = MLP(word_embedding_dim,
+                      taskcla=tasks,
+                      nhid=args.h_dim,
+                      nlayers=args.layers)
+        return encoder, experiment
     else:
         raise "Unknown model"
 
