@@ -204,7 +204,7 @@ def update_hat(engine, batch):
             p.grad.data *= smax/s*num/den
 
     # Apply step
-    #torch.nn.utils.clip_grad_norm(model.parameters(), clipgrad)
+    torch.nn.utils.clip_grad_norm(model.parameters(), clipgrad)
     optimizer.step()
     return output
 
