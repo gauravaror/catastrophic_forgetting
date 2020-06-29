@@ -55,6 +55,7 @@ class MainClassifier(Model):
     self.temp_inc = temp_inc
     self.e_dim = e_dim
     self.task_embedder =  True if task_embed else None
+    self.hat_masks = None
 
     # Use transformer style task encoding
     self.task_encoder = TaskEncoding(self.e_dim) if self.args.task_encode else None
@@ -71,6 +72,9 @@ class MainClassifier(Model):
     self._len_dataset = None
     if self.args.ewc or self.args.oewc:
         self.ewc = EWC(self)
+
+  def get_hat_masks(self):
+      return self.hat_masks
 
   def add_target_padding(self):
      self.encoder.add_target_padding()
@@ -143,7 +147,8 @@ class MainClassifier(Model):
         ta = torch.LongTensor([self.get_current_taskid()-1])
         if torch.cuda.is_available():
             ta = move_to_device(ta, torch.cuda.current_device())
-        output, _ = self.encoder(ta, embeddings)
+        output, masks = self.encoder(ta, embeddings)
+        self.hat_masks = masks
     else:
         output = self.encoder(embeddings, mask)
     if type(output) == tuple:

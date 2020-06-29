@@ -51,8 +51,10 @@ few_data = {}
 vocabulary = {}
 
 smax = 400
-lamb = 0.75
+#lamb = 0.75
+lamb = 0.0001
 current_tid = 0
+clipgrad = 10000 
 
 for task in tasks:
   utils.load_dataset(task, train_data, dev_data, few_data, args.embeddings, special=True)
@@ -161,7 +163,7 @@ def criterion(loss, masks):
         for m in masks:
             reg += m.sum()
             count += np.prod(m.size()).item()
-    reg/=count
+    reg /= count
     return loss + lamb*reg
 
 
@@ -182,7 +184,11 @@ def update_hat(engine, batch):
     s=(smax-1/smax)*engine.state.iteration/engine.state.epoch_length+1/smax
     batch  = move_to_device(batch, devicea)
     output = model(batch['tokens'], batch['label'])
-    output["loss"] = criterion(output["loss"], model.encoder.get_masks())
+    mask = model.get_hat_masks()
+    #task= torch.LongTensor([tid]).cuda()
+    #mask = copy.copy(model.encoder.mask(task, s))
+    #mask = copy.copy(mask)
+    output["loss"] = criterion(output["loss"], mask)
     output["loss"].backward()
     # Restrict layer gradients in backprop
     if current_tid > 1:
@@ -197,6 +203,8 @@ def update_hat(engine, batch):
             den = torch.cosh(p.data) + 1
             p.grad.data *= smax/s*num/den
 
+    # Apply step
+    #torch.nn.utils.clip_grad_norm(model.parameters(), clipgrad)
     optimizer.step()
     return output
 
@@ -316,25 +324,6 @@ for tid,i in enumerate(train,1):
     raw_train_generator = iterator(train_data[i], num_epochs=1)
     groups = list(raw_train_generator)
     itrainer.run(groups, max_epochs=args.epochs)
-
-    if args.mlp_hat:
-        # Activations mask
-        task=torch.autograd.Variable(torch.LongTensor([tid]).cuda(),volatile=False)
-        mask = copy.copy(model.encoder.get_masks())
-
-        if current_tid == 1:
-            mask_pre = mask
-        else:
-            mask_pre = copy.copy(torch.max(mask_pre, mask))
-
-        # Weights mask
-        mask_back={}
-        for n,_ in model.named_parameters():
-            vals = model.encoder.get_view_for(n, mask_pre)
-            if vals is not None:
-                mask_back[n] = 1 - vals
-
-
     if args.oewc:
         reset_state(reset_model=False)
         model.set_task(i, training=training_, normaliser=normaliser, tmp=temps[i])
@@ -344,6 +333,28 @@ for tid,i in enumerate(train,1):
         reset_state()
     else:
         reset_state()
+
+    if args.mlp_hat:
+        with torch.no_grad():
+            # Activations mask
+            #task = torch.autograd.Variable(torch.LongTensor([current_tid]).cuda(),volatile=False)
+            #mask = model.encoder.mask(task, smax)
+            mask = copy.copy(model.get_hat_masks())
+
+            if current_tid == 1:
+                mask_pre = mask
+            else:
+                for ind in range(len(mask_pre)):
+                    mask_pre[ind] = torch.max(mask_pre[ind], mask[ind])
+
+            # Weights mask
+            mask_back={}
+            for na,_ in model.named_parameters():
+                vals = model.encoder.get_view_for(na, mask_pre)
+                if vals is not None:
+                    mask_back[na] = 1 - vals
+
+
     ometric, smetric = eva.evaluate_all_tasks(i, evaluate_tasks, dev_data, vocabulary,
                                                              model, args, save_weight, temps)
     overall_metrics[i] = ometric
