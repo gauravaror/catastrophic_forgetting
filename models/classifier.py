@@ -20,7 +20,7 @@ from allennlp.training.metrics import CategoricalAccuracy, Average
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from models.hashedIDA import HashedMemoryRNN
-from models.mlp_hat import Net as MLPHat
+from models.mlp_hat import MLPHat
 from models.task_memory import TaskMemory
 from models.task_encoding import TaskEncoding
 from models.task_projection import TaskProjection

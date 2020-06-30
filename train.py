@@ -27,7 +27,7 @@ from allennlp.nn.util import move_to_device
 
 import models.net as net
 from models.args import get_args
-from models.mlp_hat import Net
+from models.mlp_hat import MLPHat
 import models.utils as utils
 import models.evaluate as eva
 import models.task_diagnostics as diag
@@ -54,9 +54,9 @@ current_tid = 0
 clipgrad = 10000
 
 #dataset, train, sizes = get_dataset()
-dataset, train, sizes = cifar()
+dataset, train, sizes = mnist2()
 
-model = Net(sizes, train, 1, 900)  
+model = MLPHat(sizes, train, 1, 900)  
 
 
 #for i in tasks:
@@ -110,9 +110,10 @@ def update_hat(engine, batch):
     ta  = move_to_device(ta, devicea)
     output,_ = model(ta, images, s)
     loss = criterion(model.mask(ta, s) , output[current_tid], targets)
+    optimizer.zero_grad()
     loss.backward()
     # Restrict layer gradients in backprop
-    if current_tid > 1:
+    if current_tid > 0:
         for n,p in model.named_parameters():
             if n in mask_back:
                 p.grad.data *= mask_back[n]
@@ -127,6 +128,11 @@ def update_hat(engine, batch):
     # Apply step
     torch.nn.utils.clip_grad_norm(model.parameters(), clipgrad)
     optimizer.step()
+
+    # Constrain embeddings
+    for n,p in model.named_parameters():
+        if n.startswith('e'):
+            p.data=torch.clamp(p.data,-thres_emb,thres_emb)
     return output[current_tid], targets
 
 
@@ -137,7 +143,7 @@ def validate(engine, batch):
     targets = batch[1]
     ta = torch.LongTensor([current_tid])
     ta  = move_to_device(ta, devicea)
-    output,_ = model(ta, images)
+    output,_ = model(ta, images, smax)
     loss = ce(output[current_tid], targets)
     #print(output[current_tid].argmax(dim=1), output[current_tid].shape, targets.shape, targets)
     engine.state.metric = {}

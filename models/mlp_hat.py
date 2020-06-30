@@ -9,7 +9,7 @@ class MLPHat(torch.nn.Module):
         super(MLPHat,self).__init__()
 
         print(inputsize)
-        size=inputsize
+        ncha,size,_=inputsize
         self.taskcla=taskcla
 
         self.nlayers=nlayers
@@ -17,7 +17,7 @@ class MLPHat(torch.nn.Module):
         self.relu=torch.nn.ReLU()
         self.drop1=torch.nn.Dropout(pdrop1)
         self.drop2=torch.nn.Dropout(pdrop2)
-        self.fc1=torch.nn.Linear(size, nhid)
+        self.fc1=torch.nn.Linear(ncha*size*size, nhid)
         self.efc1=torch.nn.Embedding(len(self.taskcla),nhid)
         if nlayers>1:
             self.fc2=torch.nn.Linear(nhid,nhid)
