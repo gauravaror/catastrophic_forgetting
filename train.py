@@ -235,7 +235,8 @@ if args.inv_temp:
     temps[train[0]] = args.inv_temp
     temp_temp = args.inv_temp
     for i in train[1:]:
-        temp_temp *= args.temp_inc
+        if args.temp_inc:
+            temp_temp *= args.temp_inc
         temps[i] = temp_temp
     print("temperatures startt", temps)
 
